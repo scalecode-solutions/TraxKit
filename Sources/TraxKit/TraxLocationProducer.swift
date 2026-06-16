@@ -1,102 +1,172 @@
 import Foundation
 import CoreLocation
+import CoreMotion
 #if canImport(UIKit)
 import UIKit
 #endif
 
-/// Acquires device location and POSTs fixes to mvTrax (the `/v0/track` producer).
-/// The CoreLocation patterns are lifted from OwnTracks' Move mode — the proven
-/// essentials, none of the 10-year-old complexity:
-///   • continuous `startUpdatingLocation` + `allowsBackgroundLocationUpdates` +
-///     `pausesLocationUpdatesAutomatically = false` → keeps delivering on a drive
-///     with the app backgrounded (the freeway case), no clever wake needed;
-///   • publish throttle (default 15s, like Tangle) so we don't spam the server
-///     with every raw fix;
-///   • a heartbeat so a stationary device still refreshes its head occasionally.
-/// Region monitoring (→ `transition` events) is intentionally deferred until the
-/// server endpoint exists — see mvTrax/docs/DESIGN.md.
+/// Acquires device location and POSTs fixes to mvTrax (`/v0/track`), with
+/// **adaptive cadence** — the headline. Cadence is driven by three live signals,
+/// not a fixed timer or a manual mode picker (OwnTracks' learning curve):
 ///
-/// `@MainActor`: CLLocationManager is created/used on main; the delegate hops
-/// back to main. The send closure is `async` and hops off-main inside the
-/// transport.
+///   • **motion** (CMMotionActivity): driving/running → tight; walking → medium;
+///     stationary → slow. Also fills the real `motion` telemetry field.
+///   • **battery**: stretch intervals under 30%/15%; significant-change only <5%.
+///   • **watchers**: if nobody is actively sharing-to (no one's watching you) and
+///     timeline is off, drop to significant-change only — the big battery win that
+///     OwnTracks/Life360 can't do cheaply, but our share graph makes obvious.
+///
+/// CoreLocation essentials (continuous `startUpdatingLocation` +
+/// `allowsBackgroundLocationUpdates` + `pausesAutomatically = false`) are lifted
+/// from OwnTracks' Move mode; the adaptive layer is ours.
 @MainActor
 public final class TraxLocationProducer: NSObject {
-    /// Minimum seconds between published fixes (OwnTracks `minTime`; Tangle 15s).
-    public var minInterval: TimeInterval = 15
-    /// Heartbeat: republish at least this often even when stationary.
-    public var heartbeat: TimeInterval = 60
-    /// Minimum metres moved to publish before `minInterval` elapses (0 = time-only).
-    public var minDistance: CLLocationDistance = 0
+    /// Heartbeat: republish at least this often even when stationary (continuous mode).
+    public var heartbeat: TimeInterval = 90
+
+    /// Set by the host when the set of people actively watching changes. Drives
+    /// the watcher-aware tier. Re-evaluates cadence on change.
+    public var hasWatchers: Bool = false {
+        didSet { if hasWatchers != oldValue { reevaluate() } }
+    }
+    /// Personal-history producer (timeline). When on, we keep producing even with
+    /// no watchers. Off for now (timeline is a later piece).
+    public var timelineEnabled: Bool = false {
+        didSet { if timelineEnabled != oldValue { reevaluate() } }
+    }
 
     public private(set) var isRunning = false
     public private(set) var lastError: String?
 
     private let manager = CLLocationManager()
+    private let motionMgr = CMMotionActivityManager()
     private let send: @Sendable (TrackBody) async -> Void
+
+    private enum Mode { case off, significant, continuous }
+    private var mode: Mode = .off
+    private var motion: String?            // stationary|walking|running|cycling|automotive
     private var lastSentAt: Date?
     private var lastSentLocation: CLLocation?
     private var heartbeatTimer: Timer?
 
-    /// `send` receives each throttled fix as a ready-to-POST `TrackBody`. Wire it
-    /// to `TraxSync.track`.
     public init(send: @escaping @Sendable (TrackBody) async -> Void) {
         self.send = send
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = kCLDistanceFilterNone   // we throttle, not CL
+        manager.distanceFilter = kCLDistanceFilterNone
         manager.activityType = .otherNavigation
         manager.pausesLocationUpdatesAutomatically = false
     }
 
-    /// Request authorization and begin producing. Idempotent.
     public func start() {
         guard !isRunning else { return }
         isRunning = true
         #if canImport(UIKit)
         UIDevice.current.isBatteryMonitoringEnabled = true
         #endif
-        // When-in-use first; escalate to Always for background drives. iOS shows
-        // the right prompt based on the Info.plist usage strings.
         switch manager.authorizationStatus {
-        case .notDetermined:
-            manager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse:
-            manager.requestAlwaysAuthorization()
-        default:
-            break
+        case .notDetermined:        manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse:  manager.requestAlwaysAuthorization()
+        default: break
         }
-        beginUpdates()
+        startMotion()
+        reevaluate()
         startHeartbeat()
     }
 
     public func stop() {
         isRunning = false
         manager.stopUpdatingLocation()
-        heartbeatTimer?.invalidate()
-        heartbeatTimer = nil
+        manager.stopMonitoringSignificantLocationChanges()
+        motionMgr.stopActivityUpdates()
+        heartbeatTimer?.invalidate(); heartbeatTimer = nil
+        mode = .off
     }
 
-    /// Whether the HOST app declares the `location` background mode. CoreLocation
-    /// *crashes* (asserts) if `allowsBackgroundLocationUpdates = true` is set
-    /// without it, so the SPM must never assume the host opted in.
+    // MARK: - Adaptive policy
+
+    /// Desired publish interval in continuous mode (seconds), or nil meaning
+    /// "don't run continuous — significant-change only is enough right now".
+    private func desiredInterval() -> TimeInterval? {
+        let battery = batteryPercent()
+        if let b = battery, b <= 5 { return nil }                 // critical: cheapest
+        if !hasWatchers && !timelineEnabled { return nil }        // nobody watching: cheapest
+
+        var base: TimeInterval
+        switch motion {
+        case "automotive", "running": base = 15
+        case "walking", "cycling":    base = 30
+        case "stationary":            base = 120
+        default:                      base = 30
+        }
+        if let b = battery {
+            if b <= 15 { base *= 3 }
+            else if b <= 30 { base *= 1.5 }
+        }
+        return base
+    }
+
+    /// Pick the CL mode from the policy and switch hardware accordingly.
+    private func reevaluate() {
+        guard isRunning else { return }
+        let s = manager.authorizationStatus
+        guard s == .authorizedAlways || s == .authorizedWhenInUse else { return }
+
+        let want: Mode = desiredInterval() == nil ? .significant : .continuous
+        if want == mode { return }
+
+        switch want {
+        case .continuous:
+            manager.stopMonitoringSignificantLocationChanges()
+            manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways) && hostAllowsBackground
+            if hostAllowsBackground { manager.showsBackgroundLocationIndicator = true }
+            manager.startUpdatingLocation()
+        case .significant:
+            manager.stopUpdatingLocation()
+            // Significant-change still works backgrounded and wakes the app; it's
+            // the cheap "nobody's watching / critical battery" tier.
+            manager.startMonitoringSignificantLocationChanges()
+        case .off:
+            break
+        }
+        mode = want
+    }
+
     private var hostAllowsBackground: Bool {
         (Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String])?
             .contains("location") ?? false
     }
 
-    private func beginUpdates() {
-        let s = manager.authorizationStatus
-        guard s == .authorizedWhenInUse || s == .authorizedAlways else { return }
-        // Background delivery is only legal once Always-authorized AND the host
-        // declared the location background mode — otherwise CL asserts.
-        manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways) && hostAllowsBackground
-        if hostAllowsBackground { manager.showsBackgroundLocationIndicator = true }
-        manager.startUpdatingLocation()
+    // MARK: - Motion
+
+    private func startMotion() {
+        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        motionMgr.startActivityUpdates(to: .main) { [weak self] activity in
+            guard let activity else { return }
+            let m = Self.classify(activity)
+            Task { @MainActor in self?.onMotion(m) }
+        }
     }
 
-    /// Heartbeat: if the device is stationary (no CL updates), still republish the
-    /// last known fix every `heartbeat` so the viewer's head doesn't go stale.
+    private func onMotion(_ m: String?) {
+        let changed = m != motion
+        motion = m
+        if changed { reevaluate() }   // motion class changed → cadence may change
+    }
+
+    nonisolated private static func classify(_ a: CMMotionActivity) -> String? {
+        if a.confidence == .low { return nil }
+        if a.automotive { return "automotive" }
+        if a.cycling    { return "cycling" }
+        if a.running    { return "running" }
+        if a.walking    { return "walking" }
+        if a.stationary { return "stationary" }
+        return nil
+    }
+
+    // MARK: - Heartbeat
+
     private func startHeartbeat() {
         heartbeatTimer?.invalidate()
         let t = Timer(timeInterval: heartbeat, repeats: true) { [weak self] _ in
@@ -107,32 +177,28 @@ public final class TraxLocationProducer: NSObject {
     }
 
     private func heartbeatTick() {
-        guard isRunning, let loc = manager.location else { return }
+        // Only force a refresh in continuous mode; significant mode is OS-paced.
+        guard isRunning, mode == .continuous, let loc = manager.location else { return }
         publish(loc, force: true)
     }
 
-    /// Throttle + publish. Sends when `minInterval` has elapsed since the last
-    /// send (or `minDistance` crossed), or when `force` (heartbeat).
+    // MARK: - Publish
+
     private func publish(_ location: CLLocation, force: Bool = false) {
-        let now = Date()
-        if !force {
-            if let last = lastSentAt, now.timeIntervalSince(last) < minInterval {
-                if minDistance <= 0 { return }
-                if let lastLoc = lastSentLocation,
-                   location.distance(from: lastLoc) < minDistance { return }
-            }
+        if !force, mode == .continuous, let interval = desiredInterval(), let last = lastSentAt {
+            if Date().timeIntervalSince(last) < interval { return }
         }
-        lastSentAt = now
+        lastSentAt = Date()
         lastSentLocation = location
-        let body = Self.body(from: location)
+        let body = makeBody(location)
         Task { await send(body) }
     }
 
-    static func body(from loc: CLLocation) -> TrackBody {
+    private func makeBody(_ loc: CLLocation) -> TrackBody {
         var battery: Int?
         var charging: Bool?
         #if canImport(UIKit)
-        let level = UIDevice.current.batteryLevel  // -1 when unknown
+        let level = UIDevice.current.batteryLevel
         if level >= 0 { battery = Int((level * 100).rounded()) }
         switch UIDevice.current.batteryState {
         case .charging, .full: charging = true
@@ -141,17 +207,24 @@ public final class TraxLocationProducer: NSObject {
         }
         #endif
         return TrackBody(
-            lat: loc.coordinate.latitude,
-            lng: loc.coordinate.longitude,
+            lat: loc.coordinate.latitude, lng: loc.coordinate.longitude,
             accuracy: loc.horizontalAccuracy >= 0 ? loc.horizontalAccuracy : nil,
             altitude: loc.verticalAccuracy >= 0 ? loc.altitude : nil,
             speed: loc.speed >= 0 ? loc.speed : nil,
             heading: loc.course >= 0 ? loc.course : nil,
-            batteryLevel: battery,
-            batteryCharging: charging,
-            clientTs: Int64(loc.timestamp.timeIntervalSince1970 * 1000)
-        )
+            motion: motion,
+            batteryLevel: battery, batteryCharging: charging,
+            clientTs: Int64(loc.timestamp.timeIntervalSince1970 * 1000))
     }
+
+    #if canImport(UIKit)
+    private func batteryPercent() -> Int? {
+        let l = UIDevice.current.batteryLevel
+        return l >= 0 ? Int((l * 100).rounded()) : nil
+    }
+    #else
+    private func batteryPercent() -> Int? { nil }
+    #endif
 }
 
 extension TraxLocationProducer: CLLocationManagerDelegate {
@@ -163,13 +236,13 @@ extension TraxLocationProducer: CLLocationManagerDelegate {
     public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
             guard let self, self.isRunning else { return }
-            self.beginUpdates()
+            self.mode = .off          // force a fresh mode switch under the new auth
+            self.reevaluate()
         }
     }
 
     public nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor [weak self] in
-            // kCLErrorLocationUnknown is transient — CL retries; ignore.
             if (error as? CLError)?.code == .locationUnknown { return }
             self?.lastError = error.localizedDescription
         }
