@@ -20,6 +20,10 @@ public final class TraxSync {
     /// capped). Accumulated from feed pages; transient (not persisted).
     public private(set) var recentTransitions: [TransitionDTO] = []
 
+    /// The selected sharer's recent breadcrumb (drawn on the map when you tap a
+    /// member). Server enforces that you have an active share from them.
+    public private(set) var selectedTrail: [PointDTO] = []
+
     /// The day's timeline (self), loaded on demand for the Timeline tab.
     public private(set) var timelineTrips: [TripDTO] = []
     public private(set) var timelineVisits: [VisitDTO] = []
@@ -172,6 +176,22 @@ public final class TraxSync {
             lastError = describe(error)
         }
     }
+
+    // MARK: - Sharer trail (selected member's recent breadcrumb)
+
+    /// Load the selected sharer's recent points (newest 100). The server returns
+    /// the trail only if you have an active share from them.
+    public func loadTrail(ownerID: UUID) async {
+        do {
+            selectedTrail = try await transport.points(ownerId: ownerID, since: nil, before: nil, limit: 100).points
+            lastError = nil
+        } catch is CancellationError {
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
+    public func clearTrail() { selectedTrail = [] }
 
     // MARK: - Timeline (self, per-day)
 

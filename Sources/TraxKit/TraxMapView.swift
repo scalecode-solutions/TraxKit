@@ -73,6 +73,22 @@ struct TraxMapScreen: View {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
+    /// The selected sharer's breadcrumb, chronological, for the trail polyline.
+    private var trailCoords: [CLLocationCoordinate2D] {
+        sync.selectedTrail.sorted { $0.recordedAt < $1.recordedAt }
+            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+    }
+
+    /// On selection change: focus the camera, and load (or clear) the sharer's trail.
+    private func onSelect(_ id: UUID?) {
+        focus(on: id)
+        if let id, let owner = plottable.first(where: { $0.id == id })?.ownerId {
+            Task { await sync.loadTrail(ownerID: owner) }
+        } else {
+            sync.clearTrail()
+        }
+    }
+
     /// Animate the camera onto a sharer when their marker is tapped/selected.
     private func focus(on id: UUID?) {
         guard let id, let coord = coordinate(of: id) else { return }
@@ -86,6 +102,12 @@ struct TraxMapScreen: View {
     var body: some View {
         Map(position: $camera, selection: $selected) {
             UserAnnotation()   // the signed-in user's own blue dot
+            // Selected sharer's recent trail.
+            if trailCoords.count > 1 {
+                MapPolyline(coordinates: trailCoords)
+                    .stroke(Color.accentColor.opacity(0.7),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
             // Own saved places — muted context pins.
             ForEach(places) { p in
                 Marker(p.name, monogram: Text(p.emoji ?? "📍"),
@@ -103,7 +125,7 @@ struct TraxMapScreen: View {
             }
         }
         .mapStyle(style.style)
-        .onChange(of: selected) { _, new in focus(on: new) }
+        .onChange(of: selected) { _, new in onSelect(new) }
         .overlay(alignment: .top) {
             if let err = sync.lastError {
                 Text(err).font(.caption).padding(8)
