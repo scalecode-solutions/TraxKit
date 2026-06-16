@@ -175,3 +175,60 @@ enum TimelineItem: Identifiable {
         }
     }
 }
+
+/// A compact journey row (a trip or a dwell) used in the timeline list.
+struct JourneyRow: View {
+    let item: TimelineItem
+
+    var body: some View {
+        switch item {
+        case .visit(let v):
+            row(emoji: v.placeEmoji ?? "📍", color: .accentColor,
+                title: v.placeName ?? "Stop",
+                detail: "\(timeRange(v.startTs, v.endTs)) · \(durationText(v.durationSeconds))")
+        case .trip(let t):
+            HStack(spacing: 12) {
+                Image(systemName: motionSymbol(t.motionType)).font(.body)
+                    .frame(width: 32, height: 32)
+                    .background(motionColor(t.motionType).opacity(0.18), in: .circle)
+                    .foregroundStyle(motionColor(t.motionType))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(t.startPlaceName ?? "Start") → \(t.endPlaceName ?? "End")").font(.subheadline)
+                    Text("\(timeRange(t.startTs, t.endTs)) · \(distanceText(t.distanceMeters))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private func row(emoji: String, color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Text(emoji).font(.title3).frame(width: 32, height: 32).background(color.opacity(0.12), in: .circle)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.subheadline)
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+        }
+    }
+
+    private func motionSymbol(_ m: String?) -> String {
+        switch m { case "automotive": "car.fill"; case "cycling": "bicycle"
+        case "running": "figure.run"; case "walking": "figure.walk"; default: "arrow.right" }
+    }
+    private func motionColor(_ m: String?) -> Color {
+        switch m { case "automotive": .orange; case "cycling": .green
+        case "running": .red; case "walking": .blue; default: .gray }
+    }
+    private func timeRange(_ a: Int64, _ b: Int64) -> String {
+        let f = Date.FormatStyle.dateTime.hour().minute()
+        return "\(Date(timeIntervalSince1970: Double(a)/1000).formatted(f))–\(Date(timeIntervalSince1970: Double(b)/1000).formatted(f))"
+    }
+    private func durationText(_ s: Int) -> String { s < 3600 ? "\(s/60)m" : "\(s/3600)h \((s%3600)/60)m" }
+    private func distanceText(_ m: Double) -> String {
+        let mi = m / 1609.34; return mi < 0.1 ? "\(Int(m)) m" : String(format: "%.1f mi", mi)
+    }
+}
