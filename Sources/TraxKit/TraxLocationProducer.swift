@@ -77,12 +77,21 @@ public final class TraxLocationProducer: NSObject {
         heartbeatTimer = nil
     }
 
+    /// Whether the HOST app declares the `location` background mode. CoreLocation
+    /// *crashes* (asserts) if `allowsBackgroundLocationUpdates = true` is set
+    /// without it, so the SPM must never assume the host opted in.
+    private var hostAllowsBackground: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String])?
+            .contains("location") ?? false
+    }
+
     private func beginUpdates() {
         let s = manager.authorizationStatus
         guard s == .authorizedWhenInUse || s == .authorizedAlways else { return }
-        // Background delivery is only legal once authorized; set it here.
-        manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways)
-        manager.showsBackgroundLocationIndicator = true
+        // Background delivery is only legal once Always-authorized AND the host
+        // declared the location background mode — otherwise CL asserts.
+        manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways) && hostAllowsBackground
+        if hostAllowsBackground { manager.showsBackgroundLocationIndicator = true }
         manager.startUpdatingLocation()
     }
 

@@ -142,9 +142,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
-				INFOPLIST_KEY_UIBackgroundModes = location;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_FILE = "TraxLab-Info.plist";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -177,9 +177,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
-				INFOPLIST_KEY_UIBackgroundModes = location;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_FILE = "TraxLab-Info.plist";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
