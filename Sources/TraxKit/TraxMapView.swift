@@ -44,6 +44,7 @@ struct TraxMapScreen: View {
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var selected: UUID?
     @State private var showShareSheet = false
+    @State private var detail: MemberCard?
 
     private var contactsByID: [UUID: ContactEntity] {
         Dictionary(contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -54,6 +55,15 @@ struct TraxMapScreen: View {
         let c = contactsByID[id]
         if let n = c?.name, !n.isEmpty { return n }
         return "Member \(id.uuidString.prefix(8))"
+    }
+    private func avatar(for id: UUID) -> String? { contactsByID[id]?.avatar }
+
+    /// Build the detail card snapshot for a share (status evaluated now).
+    private func card(for s: ShareEntity) -> MemberCard? {
+        guard let lat = s.lat, let lng = s.lng else { return nil }
+        return MemberCard(id: s.id, ownerId: s.ownerId, name: name(for: s.ownerId),
+                          avatar: avatar(for: s.ownerId), status: s.status(),
+                          coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
     }
 
     private func coordinate(of id: UUID) -> CLLocationCoordinate2D? {
@@ -97,6 +107,10 @@ struct TraxMapScreen: View {
         .sheet(isPresented: $showShareSheet) {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
+        .sheet(item: $detail) { c in
+            TraxMemberDetail(card: c) { selected = c.id; focus(on: c.id) }
+                .presentationDetents([.height(280), .medium])
+        }
     }
 
     @ViewBuilder private var peopleBar: some View {
@@ -106,23 +120,96 @@ struct TraxMapScreen: View {
                 .padding(10).background(.thinMaterial, in: .capsule).padding(.bottom, 12)
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ForEach(plottable) { s in
-                        Button { selected = s.id; focus(on: s.id) } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "mappin.circle.fill").font(.title2)
-                                Text(name(for: s.ownerId)).font(.caption2).lineLimit(1)
+                        let st = s.status()
+                        Button { detail = card(for: s); selected = s.id; focus(on: s.id) } label: {
+                            HStack(spacing: 8) {
+                                TraxAvatar(id: s.ownerId, name: name(for: s.ownerId),
+                                           avatarBase64: avatar(for: s.ownerId), size: 36)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(name(for: s.ownerId)).font(.subheadline.weight(.medium)).lineLimit(1)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: st.activity.symbol).font(.system(size: 9))
+                                        Text(st.line).font(.caption2)
+                                        if let b = st.battery.text {
+                                            Text("· \(b)").font(.caption2)
+                                                .foregroundStyle(st.battery.isLow ? .red : .secondary)
+                                        }
+                                    }
+                                    .foregroundStyle(.secondary)
+                                }
                             }
-                            .padding(.horizontal, 6)
-                            .foregroundStyle(selected == s.id ? Color.accentColor : .primary)
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(selected == s.id ? Color.accentColor.opacity(0.15) : .clear, in: .capsule)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 10)
             }
-            .padding(.vertical, 8).background(.thinMaterial, in: .capsule).padding(.bottom, 12)
+            .padding(.vertical, 8).background(.thinMaterial, in: .capsule)
+            .padding(.horizontal, 8).padding(.bottom, 12)
         }
+    }
+}
+
+/// A snapshot of a sharer for the detail card (status evaluated at open).
+struct MemberCard: Identifiable {
+    let id: UUID          // share id
+    let ownerId: UUID
+    let name: String
+    let avatar: String?
+    let status: TraxMemberStatus
+    let coordinate: CLLocationCoordinate2D
+}
+
+/// Tap-a-member detail: avatar, name, status line, battery, last-updated, and a
+/// "Show on map" action. Mirrors Life360's member card (minus the call/SOS
+/// actions, which come with later pieces).
+struct TraxMemberDetail: View {
+    let card: MemberCard
+    let onFocus: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 14) {
+                TraxAvatar(id: card.ownerId, name: card.name, avatarBase64: card.avatar, size: 56)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(card.name).font(.title3.weight(.semibold))
+                    HStack(spacing: 5) {
+                        Image(systemName: card.status.activity.symbol).font(.caption)
+                        Text(card.status.line).font(.subheadline)
+                    }
+                    .foregroundStyle(card.status.isStale ? .secondary : .primary)
+                    Text(card.status.lastUpdated).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 10) {
+                if let b = card.status.battery.text {
+                    Label {
+                        Text(b)
+                    } icon: {
+                        Image(systemName: card.status.battery.charging ? "battery.100.bolt"
+                              : (card.status.battery.isLow ? "battery.25" : "battery.100"))
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(card.status.battery.isLow ? .red : .primary)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.quaternary, in: .capsule)
+                }
+                Spacer()
+                Button { onFocus(); dismiss() } label: {
+                    Label("Show on map", systemImage: "scope")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .presentationDragIndicator(.visible)
     }
 }
 
