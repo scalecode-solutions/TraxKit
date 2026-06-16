@@ -99,10 +99,11 @@ public final class TraxSync {
     // MARK: - Mutations
 
     @discardableResult
-    public func startShare(viewer: UUID, mode: String = "live",
-                           retention: String = "indefinite", expiresInSeconds: Int? = nil) async throws -> ShareDTO {
+    public func startShare(viewer: UUID, mode: String = "live", retention: String = "indefinite",
+                           precision: String = "exact", expiresInSeconds: Int? = nil) async throws -> ShareDTO {
         let dto = try await transport.startShare(
-            StartShareBody(viewer: viewer, mode: mode, retention: retention, expiresIn: expiresInSeconds))
+            StartShareBody(viewer: viewer, mode: mode, retention: retention,
+                           precision: precision, expiresIn: expiresInSeconds))
         await refreshOutgoing()
         return dto
     }

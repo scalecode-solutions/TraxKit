@@ -16,8 +16,14 @@ public final class ShareEntity {
     public var ownerId: UUID
     public var mode: String
     public var retention: String
+    public var precision: String = "exact"
     public var startedAt: Int64
     public var expiresAt: Int64?
+    // Precision presentation (set from the feed): approx circle + place label.
+    public var fuzzRadiusM: Double?
+    public var placeName: String?
+    public var placeEmoji: String?
+    public var atPlace: Bool = false
 
     // Owner's current location head (from the feed's `location`).
     public var lat: Double?

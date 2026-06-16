@@ -128,7 +128,15 @@ struct TraxMapScreen: View {
                    coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lng))
                 .tint(.secondary)
         }
-        // Sharers — avatar pins (Life360 feel).
+        // Approx-precision sharers: a fuzz circle around the coarse location.
+        ForEach(plottable.filter { $0.precision == "approx" && $0.fuzzRadiusM != nil }) { s in
+            MapCircle(center: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0),
+                      radius: s.fuzzRadiusM ?? 900)
+                .foregroundStyle(Color.accentColor.opacity(0.15))
+                .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
+        }
+        // Sharers — avatar pins (Life360 feel). For place tier the pin sits at the
+        // place center; for approx, at the fuzzed center inside its circle.
         ForEach(plottable) { s in
             Annotation(name(for: s.ownerId),
                        coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0)) {
@@ -218,8 +226,13 @@ struct TraxMapScreen: View {
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(name(for: s.ownerId)).font(.subheadline.weight(.medium)).lineLimit(1)
                                     HStack(spacing: 4) {
-                                        Image(systemName: st.activity.symbol).font(.system(size: 9))
-                                        Text(st.line).font(.caption2)
+                                        if s.precision == "place" {
+                                            Image(systemName: "mappin.circle.fill").font(.system(size: 9))
+                                            Text(s.placeName.map { "At \($0)" } ?? "At a place").font(.caption2)
+                                        } else {
+                                            Image(systemName: st.activity.symbol).font(.system(size: 9))
+                                            Text(s.precision == "approx" ? "~ \(st.line)" : st.line).font(.caption2)
+                                        }
                                         if let b = st.battery.text {
                                             Text("· \(b)").font(.caption2)
                                                 .foregroundStyle(st.battery.isLow ? .red : .secondary)

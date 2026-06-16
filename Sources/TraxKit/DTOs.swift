@@ -37,18 +37,17 @@ public struct ShareDTO: Codable, Sendable, Identifiable, Hashable {
     public let id: UUID
     public let ownerId: UUID
     public let viewerId: UUID
-    public let mode: String       // "live" | "breadcrumb"
-    public let retention: String  // "none" | "indefinite"
+    public let mode: String        // "live" | "breadcrumb"
+    public let retention: String   // "none" | "indefinite"
+    public let precision: String   // "exact" | "place" | "approx"
     public let startedAt: Int64
     public let expiresAt: Int64?
     public let location: LocationDTO?
-
-    public init(id: UUID, ownerId: UUID, viewerId: UUID, mode: String, retention: String,
-                startedAt: Int64, expiresAt: Int64? = nil, location: LocationDTO? = nil) {
-        self.id = id; self.ownerId = ownerId; self.viewerId = viewerId; self.mode = mode
-        self.retention = retention; self.startedAt = startedAt; self.expiresAt = expiresAt
-        self.location = location
-    }
+    // Precision presentation (feed rows): approx fuzz circle radius; place name.
+    public let fuzzRadiusM: Double?
+    public let placeName: String?
+    public let placeEmoji: String?
+    public let atPlace: Bool?
 }
 
 /// One viewer pull-feed page: who is sharing with me + where they are now, plus
@@ -277,8 +276,11 @@ public struct StartShareBody: Codable, Sendable {
     public var viewer: UUID
     public var mode: String?
     public var retention: String?
-    public var expiresIn: Int?   // seconds from now; nil = until stopped
-    public init(viewer: UUID, mode: String? = nil, retention: String? = nil, expiresIn: Int? = nil) {
-        self.viewer = viewer; self.mode = mode; self.retention = retention; self.expiresIn = expiresIn
+    public var precision: String?   // exact | place | approx
+    public var expiresIn: Int?      // seconds from now; nil = until stopped
+    public init(viewer: UUID, mode: String? = nil, retention: String? = nil,
+                precision: String? = nil, expiresIn: Int? = nil) {
+        self.viewer = viewer; self.mode = mode; self.retention = retention
+        self.precision = precision; self.expiresIn = expiresIn
     }
 }

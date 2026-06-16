@@ -73,14 +73,22 @@ public final class TraxStore {
         e.ownerId = dto.ownerId
         e.mode = dto.mode
         e.retention = dto.retention
+        e.precision = dto.precision
         e.startedAt = dto.startedAt
         e.expiresAt = dto.expiresAt
+        e.fuzzRadiusM = dto.fuzzRadiusM
+        e.placeName = dto.placeName
+        e.placeEmoji = dto.placeEmoji
+        e.atPlace = dto.atPlace ?? false
         if let loc = dto.location {
             e.lat = loc.lat; e.lng = loc.lng; e.accuracy = loc.accuracy; e.altitude = loc.altitude
             e.speed = loc.speed; e.heading = loc.heading; e.motion = loc.motion; e.network = loc.network
             e.batteryLevel = loc.batteryLevel; e.batteryCharging = loc.batteryCharging
             e.locRecordedAt = loc.recordedAt
             e.updatedAt = loc.recordedAt
+        } else {
+            // No presented location (place-tier away, or no fix yet) — drop the pin.
+            e.lat = nil; e.lng = nil; e.locRecordedAt = nil
         }
     }
 
