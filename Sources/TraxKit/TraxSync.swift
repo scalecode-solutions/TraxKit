@@ -20,6 +20,12 @@ public final class TraxSync {
     /// capped). Accumulated from feed pages; transient (not persisted).
     public private(set) var recentTransitions: [TransitionDTO] = []
 
+    /// The day's timeline (self), loaded on demand for the Timeline tab.
+    public private(set) var timelineTrips: [TripDTO] = []
+    public private(set) var timelineVisits: [VisitDTO] = []
+    public private(set) var timelinePoints: [PointDTO] = []
+
+    public let currentUserID: UUID
     private let transport: any TraxTransport
     private let store: TraxStore
     private var isRefreshing = false
@@ -28,13 +34,14 @@ public final class TraxSync {
     /// can attach it to their `@Query` environment.
     public var container: ModelContainer { store.container }
 
-    public init(transport: any TraxTransport, store: TraxStore) {
+    public init(transport: any TraxTransport, store: TraxStore, currentUserID: UUID) {
         self.transport = transport
         self.store = store
+        self.currentUserID = currentUserID
     }
 
     public convenience init(config: TraxConfig, store: TraxStore) {
-        self.init(transport: config.transport, store: store)
+        self.init(transport: config.transport, store: store, currentUserID: config.currentUserID)
     }
 
     // MARK: - Reads
@@ -160,6 +167,30 @@ public final class TraxSync {
     public func postTransition(placeID: UUID, event: String, lat: Double? = nil, lng: Double? = nil) async {
         do {
             try await transport.postTransition(TransitionBody(placeId: placeID, event: event, lat: lat, lng: lng))
+        } catch is CancellationError {
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
+    // MARK: - Timeline (self, per-day)
+
+    /// Load my trips + visits + raw points for the calendar day containing `day`.
+    public func loadTimeline(day: Date) async {
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: day)
+        let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
+        let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
+        let endMs = Int64(endOfDay.timeIntervalSince1970 * 1000)
+        do {
+            // Server returns since>=; filter to the day's upper bound client-side.
+            let trips = try await transport.trips(since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            let visits = try await transport.visits(since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            let pts = try await transport.points(ownerId: currentUserID, since: sinceMs, before: endMs, limit: 2000)
+            timelineTrips = trips
+            timelineVisits = visits
+            timelinePoints = pts.points
+            lastError = nil
         } catch is CancellationError {
         } catch {
             lastError = describe(error)

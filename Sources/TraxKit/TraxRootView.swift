@@ -39,6 +39,9 @@ public struct TraxRootView: View {
             Tab("Places", systemImage: "mappin.and.ellipse") {
                 NavigationStack { TraxPlacesView(sync: sync).traxInlineNavTitle("Places") }
             }
+            Tab("Timeline", systemImage: "clock.arrow.circlepath") {
+                NavigationStack { TraxTimelineView(sync: sync).traxInlineNavTitle("Timeline") }
+            }
             Tab("Me", systemImage: "person.crop.circle") {
                 NavigationStack { TraxSettingsView(sync: sync, onSignOut: onSignOut).traxInlineNavTitle("Me") }
             }

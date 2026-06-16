@@ -25,6 +25,9 @@ public protocol TraxTransport: Sendable {
     func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO
     func deletePlace(id: UUID) async throws
     func postTransition(_ body: TransitionBody) async throws
+    // Timeline (self).
+    func trips(since: Int64?, limit: Int?) async throws -> [TripDTO]
+    func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO]
 }
 
 /// REST transport against mvTrax. A value type whose members are all Sendable, so
@@ -128,6 +131,22 @@ public struct HTTPTraxTransport: TraxTransport {
         // owns debounce + fan-out. Decode into a throwaway to reuse `send`.
         struct Ack: Decodable {}
         let _: Ack = try await send("POST", "/v0/transition", body: body)
+    }
+
+    public func trips(since: Int64?, limit: Int?) async throws -> [TripDTO] {
+        var q: [URLQueryItem] = []
+        if let since { q.append(.init(name: "since", value: String(since))) }
+        if let limit { q.append(.init(name: "limit", value: String(limit))) }
+        let res: TripsDTO = try await get("/v0/trips", query: q)
+        return res.trips
+    }
+
+    public func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+        var q: [URLQueryItem] = []
+        if let since { q.append(.init(name: "since", value: String(since))) }
+        if let limit { q.append(.init(name: "limit", value: String(limit))) }
+        let res: VisitsDTO = try await get("/v0/visits", query: q)
+        return res.visits
     }
 
     // MARK: - Plumbing

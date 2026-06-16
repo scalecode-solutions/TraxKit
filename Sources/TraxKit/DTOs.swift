@@ -99,6 +99,50 @@ public struct TransitionDTO: Codable, Sendable, Identifiable, Hashable {
     public let createdAt: Int64
 }
 
+// --- timeline (trips + visits) ---
+
+/// A dwell (stationary cluster) in the curated timeline.
+public struct VisitDTO: Codable, Sendable, Identifiable, Hashable {
+    public let id: UUID
+    public let startTs: Int64
+    public let endTs: Int64
+    public let lat: Double
+    public let lng: Double
+    public let durationSeconds: Int
+    public let placeName: String?
+    public let placeEmoji: String?
+    public let pointCount: Int
+}
+
+public struct VisitsDTO: Codable, Sendable {
+    public let visits: [VisitDTO]
+}
+
+/// A movement segment in the curated timeline.
+public struct TripDTO: Codable, Sendable, Identifiable, Hashable {
+    public let id: UUID
+    public let startTs: Int64
+    public let endTs: Int64
+    public let startLat: Double
+    public let startLng: Double
+    public let endLat: Double
+    public let endLng: Double
+    public let startPlaceName: String?
+    public let startPlaceEmoji: String?
+    public let endPlaceName: String?
+    public let endPlaceEmoji: String?
+    public let distanceMeters: Double
+    public let durationSeconds: Int
+    public let maxSpeed: Double?
+    public let avgSpeed: Double?
+    public let motionType: String?
+    public let pointCount: Int
+}
+
+public struct TripsDTO: Codable, Sendable {
+    public let trips: [TripDTO]
+}
+
 // --- request bodies (places + transition) ---
 
 /// Create/edit a place.
