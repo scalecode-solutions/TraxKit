@@ -46,6 +46,7 @@ struct TraxMapScreen: View {
     @State private var selected: UUID?
     @State private var showShareSheet = false
     @State private var detail: MemberCard?
+    @State private var detailDetent: PresentationDetent = .medium
     @State private var style: TraxMapStyle = .standard
 
     private var contactsByID: [UUID: ContactEntity] {
@@ -79,24 +80,59 @@ struct TraxMapScreen: View {
             .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
     }
 
-    /// On selection change: focus the camera, and load (or clear) the sharer's trail.
+    /// On selection change: open the member card (which loads their journeys) and
+    /// focus the camera. No trail until a journey is picked.
     private func onSelect(_ id: UUID?) {
         focus(on: id)
-        if let id, let owner = plottable.first(where: { $0.id == id })?.ownerId {
-            Task { await sync.loadTrail(ownerID: owner) }
-        } else {
+        if let id, let sh = plottable.first(where: { $0.id == id }) {
+            detail = card(for: sh)
+            detailDetent = .medium
             sync.clearTrail()
+        } else {
+            detail = nil
+            sync.clearMember()
+        }
+    }
+
+    /// A journey was tapped in the card: drop the card to a peek, draw that
+    /// journey on the map (a trip's path / a visit's spot), frame it.
+    private func onJourney(_ ownerID: UUID, _ item: TimelineItem) {
+        detailDetent = .height(150)
+        switch item {
+        case .trip(let t):
+            Task {
+                await sync.loadTrail(ownerID: ownerID, since: t.startTs, before: t.endTs)
+                fitTrail()
+            }
+        case .visit(let v):
+            sync.clearTrail()
+            focusCoord(CLLocationCoordinate2D(latitude: v.lat, longitude: v.lng), span: 0.01)
+        }
+    }
+
+    /// Frame the camera to the current journey trail.
+    private func fitTrail() {
+        let cs = trailCoords
+        guard !cs.isEmpty else { return }
+        let lats = cs.map(\.latitude), lngs = cs.map(\.longitude)
+        let center = CLLocationCoordinate2D(latitude: (lats.min()! + lats.max()!) / 2,
+                                            longitude: (lngs.min()! + lngs.max()!) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max(0.005, (lats.max()! - lats.min()!) * 1.5),
+                                    longitudeDelta: max(0.005, (lngs.max()! - lngs.min()!) * 1.5))
+        withAnimation(.easeInOut) { camera = .region(MKCoordinateRegion(center: center, span: span)) }
+    }
+
+    private func focusCoord(_ coord: CLLocationCoordinate2D, span: Double) {
+        withAnimation(.easeInOut) {
+            camera = .region(MKCoordinateRegion(center: coord,
+                span: MKCoordinateSpan(latitudeDelta: span, longitudeDelta: span)))
         }
     }
 
     /// Animate the camera onto a sharer when their marker is tapped/selected.
     private func focus(on id: UUID?) {
         guard let id, let coord = coordinate(of: id) else { return }
-        withAnimation(.easeInOut) {
-            camera = .region(MKCoordinateRegion(
-                center: coord,
-                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))
-        }
+        focusCoord(coord, span: 0.01)
     }
 
     var body: some View {
@@ -144,10 +180,13 @@ struct TraxMapScreen: View {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
         .sheet(item: $detail) { c in
-            TraxMemberDetail(card: c, transitions: sync.recentTransitions.filter { $0.ownerId == c.ownerId }) {
-                selected = c.id; focus(on: c.id)
-            }
-            .presentationDetents([.height(320), .medium])
+            TraxMemberDetail(card: c, sync: sync) { item in onJourney(c.ownerId, item) }
+                .presentationDetents([.height(150), .medium, .large], selection: $detailDetent)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationDragIndicator(.visible)
+        }
+        .onChange(of: detail?.id) { _, id in
+            if id == nil { selected = nil; sync.clearMember() }  // card dismissed
         }
     }
 
@@ -183,7 +222,7 @@ struct TraxMapScreen: View {
                 HStack(spacing: 8) {
                     ForEach(plottable) { s in
                         let st = s.status()
-                        Button { detail = card(for: s); selected = s.id; focus(on: s.id) } label: {
+                        Button { selected = s.id } label: {   // onSelect opens the card
                             HStack(spacing: 8) {
                                 TraxAvatar(id: s.ownerId, name: name(for: s.ownerId),
                                            avatarBase64: avatar(for: s.ownerId), size: 36)
@@ -264,19 +303,38 @@ struct MemberCard: Identifiable {
     let coordinate: CLLocationCoordinate2D
 }
 
-/// Tap-a-member detail: avatar, name, status line, battery, last-updated, and a
-/// "Show on map" action. Mirrors Life360's member card (minus the call/SOS
-/// actions, which come with later pieces).
+/// Tap-a-member card: status header + the friend's journeys today (trips +
+/// visits). Tapping a journey draws it on the map (parent handles via onJourney)
+/// — Life360's "see each journey and its trail." Journeys are share-gated server
+/// side. The header is always visible; the journey list scrolls at taller detents.
 struct TraxMemberDetail: View {
     let card: MemberCard
-    var transitions: [TransitionDTO] = []
-    let onFocus: () -> Void
-    @Environment(\.dismiss) private var dismiss
+    let sync: TraxSync
+    let onJourney: (TimelineItem) -> Void
+
+    /// The friend's journeys, most recent first.
+    private var items: [TimelineItem] {
+        let t = sync.memberTrips.map { TimelineItem.trip($0) }
+        let v = sync.memberVisits.map { TimelineItem.visit($0) }
+        return (t + v).sorted { $0.startTs > $1.startTs }
+    }
+    private var latestTransition: TransitionDTO? {
+        sync.recentTransitions.first { $0.ownerId == card.ownerId }
+    }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
+            header.padding(20)
+            Divider()
+            journeys
+        }
+        .task(id: card.ownerId) { await sync.loadMemberTimeline(ownerID: card.ownerId) }
+    }
+
+    private var header: some View {
+        VStack(spacing: 12) {
             HStack(spacing: 14) {
-                TraxAvatar(id: card.ownerId, name: card.name, avatarBase64: card.avatar, size: 56)
+                TraxAvatar(id: card.ownerId, name: card.name, avatarBase64: card.avatar, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(card.name).font(.title3.weight(.semibold))
                     HStack(spacing: 5) {
@@ -287,43 +345,97 @@ struct TraxMemberDetail: View {
                     Text(card.status.lastUpdated).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                if let b = card.status.battery.text {
+                    Label(b, systemImage: card.status.battery.charging ? "battery.100.bolt"
+                          : (card.status.battery.isLow ? "battery.25" : "battery.100"))
+                        .labelStyle(.titleAndIcon).font(.subheadline)
+                        .foregroundStyle(card.status.battery.isLow ? .red : .secondary)
+                }
             }
-
-            if let latest = transitions.first {
+            if let latest = latestTransition {
                 HStack(spacing: 6) {
                     Image(systemName: latest.event == "enter" ? "arrow.down.to.line.compact" : "arrow.up.from.line.compact")
                     Text("\(latest.event == "enter" ? "Arrived at" : "Left") \(latest.placeEmoji ?? "") \(latest.placeName)")
-                        .font(.subheadline)
+                        .font(.footnote)
                     Spacer()
                 }
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: .rect(cornerRadius: 10))
-            }
-
-            HStack(spacing: 10) {
-                if let b = card.status.battery.text {
-                    Label {
-                        Text(b)
-                    } icon: {
-                        Image(systemName: card.status.battery.charging ? "battery.100.bolt"
-                              : (card.status.battery.isLow ? "battery.25" : "battery.100"))
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(card.status.battery.isLow ? .red : .primary)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(.quaternary, in: .capsule)
-                }
-                Spacer()
-                Button { onFocus(); dismiss() } label: {
-                    Label("Show on map", systemImage: "scope")
-                }
-                .buttonStyle(.borderedProminent)
             }
         }
-        .padding(20)
-        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder private var journeys: some View {
+        if items.isEmpty {
+            VStack(spacing: 6) {
+                Image(systemName: "clock").font(.title3).foregroundStyle(.secondary)
+                Text("No journeys today").font(.subheadline).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity).padding(.top, 28)
+            Spacer()
+        } else {
+            List(items) { item in
+                Button { onJourney(item) } label: { JourneyRow(item: item) }
+                    .buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+        }
+    }
+}
+
+/// A compact journey row in the member card (a trip or a dwell).
+struct JourneyRow: View {
+    let item: TimelineItem
+
+    var body: some View {
+        switch item {
+        case .visit(let v):
+            row(emoji: v.placeEmoji ?? "📍", color: .accentColor,
+                title: v.placeName ?? "Stop",
+                detail: "\(timeRange(v.startTs, v.endTs)) · \(durationText(v.durationSeconds))")
+        case .trip(let t):
+            HStack(spacing: 12) {
+                Image(systemName: motionSymbol(t.motionType)).font(.body)
+                    .frame(width: 32, height: 32)
+                    .background(motionColor(t.motionType).opacity(0.18), in: .circle)
+                    .foregroundStyle(motionColor(t.motionType))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(t.startPlaceName ?? "Start") → \(t.endPlaceName ?? "End")").font(.subheadline)
+                    Text("\(timeRange(t.startTs, t.endTs)) · \(distanceText(t.distanceMeters))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private func row(emoji: String, color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Text(emoji).font(.title3).frame(width: 32, height: 32).background(color.opacity(0.12), in: .circle)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.subheadline)
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+        }
+    }
+
+    private func motionSymbol(_ m: String?) -> String {
+        switch m { case "automotive": "car.fill"; case "cycling": "bicycle"
+        case "running": "figure.run"; case "walking": "figure.walk"; default: "arrow.right" }
+    }
+    private func motionColor(_ m: String?) -> Color {
+        switch m { case "automotive": .orange; case "cycling": .green
+        case "running": .red; case "walking": .blue; default: .gray }
+    }
+    private func timeRange(_ a: Int64, _ b: Int64) -> String {
+        let f = Date.FormatStyle.dateTime.hour().minute()
+        return "\(Date(timeIntervalSince1970: Double(a)/1000).formatted(f))–\(Date(timeIntervalSince1970: Double(b)/1000).formatted(f))"
+    }
+    private func durationText(_ s: Int) -> String { s < 3600 ? "\(s/60)m" : "\(s/3600)h \((s%3600)/60)m" }
+    private func distanceText(_ m: Double) -> String {
+        let mi = m / 1609.34; return mi < 0.1 ? "\(Int(m)) m" : String(format: "%.1f mi", mi)
     }
 }
 

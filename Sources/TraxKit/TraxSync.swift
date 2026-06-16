@@ -23,6 +23,9 @@ public final class TraxSync {
     /// The selected sharer's recent breadcrumb (drawn on the map when you tap a
     /// member). Server enforces that you have an active share from them.
     public private(set) var selectedTrail: [PointDTO] = []
+    /// The open member card's journeys (that friend's trips + visits, today).
+    public private(set) var memberTrips: [TripDTO] = []
+    public private(set) var memberVisits: [VisitDTO] = []
 
     /// The day's timeline (self), loaded on demand for the Timeline tab.
     public private(set) var timelineTrips: [TripDTO] = []
@@ -179,11 +182,11 @@ public final class TraxSync {
 
     // MARK: - Sharer trail (selected member's recent breadcrumb)
 
-    /// Load the selected sharer's recent points (newest 100). The server returns
-    /// the trail only if you have an active share from them.
-    public func loadTrail(ownerID: UUID) async {
+    /// Load a sharer's breadcrumb for an optional time window (a specific
+    /// journey's [since, before)). Server gates on an active share from them.
+    public func loadTrail(ownerID: UUID, since: Int64? = nil, before: Int64? = nil) async {
         do {
-            selectedTrail = try await transport.points(ownerId: ownerID, since: nil, before: nil, limit: 100).points
+            selectedTrail = try await transport.points(ownerId: ownerID, since: since, before: before, limit: 500).points
             lastError = nil
         } catch is CancellationError {
         } catch {
@@ -192,6 +195,25 @@ public final class TraxSync {
     }
 
     public func clearTrail() { selectedTrail = [] }
+
+    /// Load the open member card's journeys (their trips + visits for today).
+    public func loadMemberTimeline(ownerID: UUID) async {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
+        do {
+            memberTrips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, limit: 200)
+            memberVisits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, limit: 200)
+            lastError = nil
+        } catch is CancellationError {
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
+    /// Clear the member card's state (journeys + trail) when it closes.
+    public func clearMember() {
+        memberTrips = []; memberVisits = []; selectedTrail = []
+    }
 
     // MARK: - Timeline (self, per-day)
 

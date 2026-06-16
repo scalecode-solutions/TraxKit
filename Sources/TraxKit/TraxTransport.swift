@@ -28,6 +28,9 @@ public protocol TraxTransport: Sendable {
     // Timeline (self).
     func trips(since: Int64?, limit: Int?) async throws -> [TripDTO]
     func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO]
+    // Owner-scoped timeline (a friend's journeys; server gates on active share).
+    func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO]
+    func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO]
 }
 
 /// REST transport against mvTrax. A value type whose members are all Sendable, so
@@ -146,6 +149,22 @@ public struct HTTPTraxTransport: TraxTransport {
         if let since { q.append(.init(name: "since", value: String(since))) }
         if let limit { q.append(.init(name: "limit", value: String(limit))) }
         let res: VisitsDTO = try await get("/v0/visits", query: q)
+        return res.visits
+    }
+
+    public func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO] {
+        var q: [URLQueryItem] = []
+        if let since { q.append(.init(name: "since", value: String(since))) }
+        if let limit { q.append(.init(name: "limit", value: String(limit))) }
+        let res: TripsDTO = try await get("/v0/track/\(ownerId)/trips", query: q)
+        return res.trips
+    }
+
+    public func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+        var q: [URLQueryItem] = []
+        if let since { q.append(.init(name: "since", value: String(since))) }
+        if let limit { q.append(.init(name: "limit", value: String(limit))) }
+        let res: VisitsDTO = try await get("/v0/track/\(ownerId)/visits", query: q)
         return res.visits
     }
 
