@@ -20,18 +20,6 @@ public final class TraxSync {
     /// capped). Accumulated from feed pages; transient (not persisted).
     public private(set) var recentTransitions: [TransitionDTO] = []
 
-    /// The selected sharer's recent breadcrumb (drawn on the map when you tap a
-    /// member). Server enforces that you have an active share from them.
-    public private(set) var selectedTrail: [PointDTO] = []
-    /// The open member card's journeys (that friend's trips + visits, today).
-    public private(set) var memberTrips: [TripDTO] = []
-    public private(set) var memberVisits: [VisitDTO] = []
-
-    /// The day's timeline (self), loaded on demand for the Timeline tab.
-    public private(set) var timelineTrips: [TripDTO] = []
-    public private(set) var timelineVisits: [VisitDTO] = []
-    public private(set) var timelinePoints: [PointDTO] = []
-
     public let currentUserID: UUID
     private let transport: any TraxTransport
     private let store: TraxStore
@@ -180,62 +168,28 @@ public final class TraxSync {
         }
     }
 
-    // MARK: - Sharer trail (selected member's recent breadcrumb)
+    // MARK: - Timeline (any owner, per-day)
 
-    /// Load a sharer's breadcrumb for an optional time window (a specific
-    /// journey's [since, before)). Server gates on an active share from them.
-    public func loadTrail(ownerID: UUID, since: Int64? = nil, before: Int64? = nil) async {
-        do {
-            selectedTrail = try await transport.points(ownerId: ownerID, since: since, before: before, limit: 500).points
-            lastError = nil
-        } catch is CancellationError {
-        } catch {
-            lastError = describe(error)
-        }
-    }
-
-    public func clearTrail() { selectedTrail = [] }
-
-    /// Load the open member card's journeys (their trips + visits for today).
-    public func loadMemberTimeline(ownerID: UUID) async {
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
-        do {
-            memberTrips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, limit: 200)
-            memberVisits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, limit: 200)
-            lastError = nil
-        } catch is CancellationError {
-        } catch {
-            lastError = describe(error)
-        }
-    }
-
-    /// Clear the member card's state (journeys + trail) when it closes.
-    public func clearMember() {
-        memberTrips = []; memberVisits = []; selectedTrail = []
-    }
-
-    // MARK: - Timeline (self, per-day)
-
-    /// Load my trips + visits + raw points for the calendar day containing `day`.
-    public func loadTimeline(day: Date) async {
+    /// One day's curated timeline for an owner (self or a friend who shares with
+    /// you). Returned (not stored) so each Timeline screen owns its own state and
+    /// two screens never collide. Friend reads are server-gated on an active share.
+    public func timeline(ownerID: UUID, day: Date) async -> TimelineDay {
         let cal = Calendar.current
         let startOfDay = cal.startOfDay(for: day)
         let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
         let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
         let endMs = Int64(endOfDay.timeIntervalSince1970 * 1000)
         do {
-            // Server returns since>=; filter to the day's upper bound client-side.
-            let trips = try await transport.trips(since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
-            let visits = try await transport.visits(since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
-            let pts = try await transport.points(ownerId: currentUserID, since: sinceMs, before: endMs, limit: 2000)
-            timelineTrips = trips
-            timelineVisits = visits
-            timelinePoints = pts.points
+            let trips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            let visits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            let pts = try await transport.points(ownerId: ownerID, since: sinceMs, before: endMs, limit: 2000)
             lastError = nil
+            return TimelineDay(trips: trips, visits: visits, points: pts.points)
         } catch is CancellationError {
+            return TimelineDay()
         } catch {
             lastError = describe(error)
+            return TimelineDay()
         }
     }
 

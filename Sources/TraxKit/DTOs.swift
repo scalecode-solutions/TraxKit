@@ -143,6 +143,13 @@ public struct TripsDTO: Codable, Sendable {
     public let trips: [TripDTO]
 }
 
+/// One day's curated timeline for an owner (returned by TraxSync.timeline).
+public struct TimelineDay: Sendable {
+    public var trips: [TripDTO] = []
+    public var visits: [VisitDTO] = []
+    public var points: [PointDTO] = []
+}
+
 // --- request bodies (places + transition) ---
 
 /// Create/edit a place.

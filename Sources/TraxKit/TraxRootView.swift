@@ -40,7 +40,7 @@ public struct TraxRootView: View {
                 NavigationStack { TraxPlacesView(sync: sync).traxInlineNavTitle("Places") }
             }
             Tab("Timeline", systemImage: "clock.arrow.circlepath") {
-                NavigationStack { TraxTimelineView(sync: sync).traxInlineNavTitle("Timeline") }
+                NavigationStack { TraxTimelineView(sync: sync, owner: sync.currentUserID, title: "My Timeline") }
             }
             Tab("Me", systemImage: "person.crop.circle") {
                 NavigationStack { TraxSettingsView(sync: sync, onSignOut: onSignOut).traxInlineNavTitle("Me") }

@@ -46,7 +46,7 @@ struct TraxMapScreen: View {
     @State private var selected: UUID?
     @State private var showShareSheet = false
     @State private var detail: MemberCard?
-    @State private var detailDetent: PresentationDetent = .medium
+    @State private var historyTarget: HistoryTarget?   // pushes the full timeline for a friend
     @State private var style: TraxMapStyle = .standard
     /// While a member card is open (and no journey trail is up), follow this
     /// owner: re-center on their new fixes, map panning behind them. Cleared when
@@ -79,25 +79,15 @@ struct TraxMapScreen: View {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
-    /// The selected sharer's breadcrumb, chronological, for the trail polyline.
-    private var trailCoords: [CLLocationCoordinate2D] {
-        sync.selectedTrail.sorted { $0.recordedAt < $1.recordedAt }
-            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
-    }
-
-    /// On selection change: open the member card (which loads their journeys) and
-    /// focus the camera. No trail until a journey is picked.
+    /// On selection change: open the glance card + follow the member's live fixes.
     private func onSelect(_ id: UUID?) {
         focus(on: id)
         if let id, let sh = plottable.first(where: { $0.id == id }) {
             detail = card(for: sh)
-            detailDetent = .medium
-            sync.clearTrail()
             following = sh.ownerId   // follow their live position
         } else {
             detail = nil
             following = nil
-            sync.clearMember()
         }
     }
 
@@ -117,35 +107,6 @@ struct TraxMapScreen: View {
         }
     }
 
-    /// A journey was tapped in the card: drop the card to a peek, draw that
-    /// journey on the map (a trip's path / a visit's spot), frame it.
-    private func onJourney(_ ownerID: UUID, _ item: TimelineItem) {
-        detailDetent = .height(150)
-        following = nil   // a journey is being framed — stop live-follow
-        switch item {
-        case .trip(let t):
-            Task {
-                await sync.loadTrail(ownerID: ownerID, since: t.startTs, before: t.endTs)
-                fitTrail()
-            }
-        case .visit(let v):
-            sync.clearTrail()
-            focusCoord(CLLocationCoordinate2D(latitude: v.lat, longitude: v.lng), span: 0.01)
-        }
-    }
-
-    /// Frame the camera to the current journey trail.
-    private func fitTrail() {
-        let cs = trailCoords
-        guard !cs.isEmpty else { return }
-        let lats = cs.map(\.latitude), lngs = cs.map(\.longitude)
-        let center = CLLocationCoordinate2D(latitude: (lats.min()! + lats.max()!) / 2,
-                                            longitude: (lngs.min()! + lngs.max()!) / 2)
-        let span = MKCoordinateSpan(latitudeDelta: max(0.005, (lats.max()! - lats.min()!) * 1.5),
-                                    longitudeDelta: max(0.005, (lngs.max()! - lngs.min()!) * 1.5))
-        withAnimation(.easeInOut) { camera = .region(MKCoordinateRegion(center: center, span: span)) }
-    }
-
     private func focusCoord(_ coord: CLLocationCoordinate2D, span: Double) {
         withAnimation(.easeInOut) {
             camera = .region(MKCoordinateRegion(center: coord,
@@ -159,31 +120,27 @@ struct TraxMapScreen: View {
         focusCoord(coord, span: 0.01)
     }
 
-    var body: some View {
-        Map(position: $camera, selection: $selected) {
-            UserAnnotation()   // the signed-in user's own blue dot
-            // Selected sharer's recent trail.
-            if trailCoords.count > 1 {
-                MapPolyline(coordinates: trailCoords)
-                    .stroke(Color.accentColor.opacity(0.7),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-            }
-            // Own saved places — muted context pins.
-            ForEach(places) { p in
-                Marker(p.name, monogram: Text(p.emoji ?? "📍"),
-                       coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lng))
-                    .tint(.secondary)
-            }
-            // Sharers — avatar pins (Life360 feel).
-            ForEach(plottable) { s in
-                Annotation(name(for: s.ownerId),
-                           coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0)) {
-                    AvatarPin(id: s.ownerId, name: name(for: s.ownerId),
-                              avatar: avatar(for: s.ownerId), selected: selected == s.id)
-                }
-                .tag(s.id)
-            }
+    @MapContentBuilder private var mapContent: some MapContent {
+        UserAnnotation()   // the signed-in user's own blue dot
+        // Own saved places — muted context pins.
+        ForEach(places) { p in
+            Marker(p.name, monogram: Text(p.emoji ?? "📍"),
+                   coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lng))
+                .tint(.secondary)
         }
+        // Sharers — avatar pins (Life360 feel).
+        ForEach(plottable) { s in
+            Annotation(name(for: s.ownerId),
+                       coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0)) {
+                AvatarPin(id: s.ownerId, name: name(for: s.ownerId),
+                          avatar: avatar(for: s.ownerId), selected: selected == s.id)
+            }
+            .tag(s.id)
+        }
+    }
+
+    var body: some View {
+        Map(position: $camera, selection: $selected) { mapContent }
         .mapStyle(style.style)
         .onMapCameraChange(frequency: .onEnd) { ctx in lastSpan = ctx.region.span }
         .onChange(of: selected) { _, new in onSelect(new) }
@@ -206,13 +163,19 @@ struct TraxMapScreen: View {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
         .sheet(item: $detail) { c in
-            TraxMemberDetail(card: c, sync: sync) { item in onJourney(c.ownerId, item) }
-                .presentationDetents([.height(150), .medium, .large], selection: $detailDetent)
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationDragIndicator(.visible)
+            TraxMemberDetail(card: c, sync: sync) {
+                detail = nil                 // dismiss the glance…
+                historyTarget = HistoryTarget(ownerId: c.ownerId, name: c.name)  // …push their timeline
+            }
+            .presentationDetents([.height(220), .medium])
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+            .presentationDragIndicator(.visible)
         }
         .onChange(of: detail?.id) { _, id in
-            if id == nil { selected = nil; sync.clearMember() }  // card dismissed
+            if id == nil { selected = nil }  // card dismissed → stop follow next tick
+        }
+        .navigationDestination(item: $historyTarget) { t in
+            TraxTimelineView(sync: sync, owner: t.ownerId, title: t.name)
         }
     }
 
@@ -319,6 +282,13 @@ struct AvatarPin: View {
     }
 }
 
+/// Push target for a friend's full timeline (Identifiable + Hashable for navigationDestination).
+struct HistoryTarget: Identifiable, Hashable {
+    let ownerId: UUID
+    let name: String
+    var id: UUID { ownerId }
+}
+
 /// A snapshot of a sharer for the detail card (status evaluated at open).
 struct MemberCard: Identifiable {
     let id: UUID          // share id
@@ -329,36 +299,21 @@ struct MemberCard: Identifiable {
     let coordinate: CLLocationCoordinate2D
 }
 
-/// Tap-a-member card: status header + the friend's journeys today (trips +
-/// visits). Tapping a journey draws it on the map (parent handles via onJourney)
-/// — Life360's "see each journey and its trail." Journeys are share-gated server
-/// side. The header is always visible; the journey list scrolls at taller detents.
+/// Tap-a-member glance card: status, battery, last-updated, latest arrival/leave,
+/// and a "Location history" button that pushes their full timeline (Life360's
+/// model — the glance is light; history is its own pushed screen, not crammed
+/// into a detented sheet).
 struct TraxMemberDetail: View {
     let card: MemberCard
     let sync: TraxSync
-    let onJourney: (TimelineItem) -> Void
+    let onHistory: () -> Void
 
-    /// The friend's journeys, most recent first.
-    private var items: [TimelineItem] {
-        let t = sync.memberTrips.map { TimelineItem.trip($0) }
-        let v = sync.memberVisits.map { TimelineItem.visit($0) }
-        return (t + v).sorted { $0.startTs > $1.startTs }
-    }
     private var latestTransition: TransitionDTO? {
         sync.recentTransitions.first { $0.ownerId == card.ownerId }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header.padding(20)
-            Divider()
-            journeys
-        }
-        .task(id: card.ownerId) { await sync.loadMemberTimeline(ownerID: card.ownerId) }
-    }
-
-    private var header: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 TraxAvatar(id: card.ownerId, name: card.name, avatarBase64: card.avatar, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
@@ -378,6 +333,7 @@ struct TraxMemberDetail: View {
                         .foregroundStyle(card.status.battery.isLow ? .red : .secondary)
                 }
             }
+
             if let latest = latestTransition {
                 HStack(spacing: 6) {
                     Image(systemName: latest.event == "enter" ? "arrow.down.to.line.compact" : "arrow.up.from.line.compact")
@@ -387,24 +343,15 @@ struct TraxMemberDetail: View {
                 }
                 .foregroundStyle(.secondary)
             }
-        }
-    }
 
-    @ViewBuilder private var journeys: some View {
-        if items.isEmpty {
-            VStack(spacing: 6) {
-                Image(systemName: "clock").font(.title3).foregroundStyle(.secondary)
-                Text("No journeys today").font(.subheadline).foregroundStyle(.secondary)
+            Button(action: onHistory) {
+                Label("Location history", systemImage: "clock.arrow.circlepath")
+                    .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity).padding(.top, 28)
-            Spacer()
-        } else {
-            List(items) { item in
-                Button { onJourney(item) } label: { JourneyRow(item: item) }
-                    .buttonStyle(.plain)
-            }
-            .listStyle(.plain)
+            .buttonStyle(.bordered)
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
