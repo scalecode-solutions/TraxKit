@@ -12,7 +12,7 @@ public final class TraxStore {
 
     /// On-disk store (the app path).
     public init() {
-        let schema = Schema([ShareEntity.self, ContactEntity.self, SyncCursorEntity.self])
+        let schema = Schema([ShareEntity.self, ContactEntity.self, PlaceEntity.self, SyncCursorEntity.self])
         let config = ModelConfiguration("TraxKit", schema: schema)
         do {
             container = try ModelContainer(for: schema, configurations: config)
@@ -23,7 +23,7 @@ public final class TraxStore {
 
     /// In-memory store (tests / previews / lab).
     public init(inMemory: Bool) {
-        let schema = Schema([ShareEntity.self, ContactEntity.self, SyncCursorEntity.self])
+        let schema = Schema([ShareEntity.self, ContactEntity.self, PlaceEntity.self, SyncCursorEntity.self])
         let config = ModelConfiguration("TraxKit", schema: schema, isStoredInMemoryOnly: inMemory)
         do {
             container = try ModelContainer(for: schema, configurations: config)
@@ -104,6 +104,26 @@ public final class TraxStore {
         } else {
             context.insert(ContactEntity(id: c.id, name: c.name, avatar: c.avatar))
         }
+    }
+
+    // MARK: - Places (the user's own)
+
+    /// Replace the local place set with the server's list (the source of truth
+    /// for my own places). Simpler than delta — there are few places.
+    public func replacePlaces(_ places: [PlaceDTO]) {
+        let existing = (try? context.fetch(FetchDescriptor<PlaceEntity>())) ?? []
+        for e in existing { context.delete(e) }
+        for p in places {
+            context.insert(PlaceEntity(id: p.id, ownerId: p.ownerId, name: p.name, type: p.type,
+                                       lat: p.lat, lng: p.lng, radiusM: p.radiusM, emoji: p.emoji,
+                                       address: p.address, updatedAt: p.updatedAt))
+        }
+        save()
+    }
+
+    /// Snapshot of the user's places for the geofence monitor.
+    public func allPlaces() -> [PlaceEntity] {
+        (try? context.fetch(FetchDescriptor<PlaceEntity>())) ?? []
     }
 
     public func save() {

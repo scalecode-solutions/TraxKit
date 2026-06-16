@@ -19,6 +19,12 @@ public protocol TraxTransport: Sendable {
     func contacts() async throws -> [TraxContact]
     /// The caller's own identity from the people directory (for the self-marker).
     func me() async throws -> TraxContact
+    // Places + device-published transitions.
+    func places() async throws -> [PlaceDTO]
+    func createPlace(_ body: PlaceBody) async throws -> PlaceDTO
+    func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO
+    func deletePlace(id: UUID) async throws
+    func postTransition(_ body: TransitionBody) async throws
 }
 
 /// REST transport against mvTrax. A value type whose members are all Sendable, so
@@ -96,6 +102,32 @@ public struct HTTPTraxTransport: TraxTransport {
 
     public func me() async throws -> TraxContact {
         try await get("/v0/me", query: [])
+    }
+
+    // MARK: - Places + transitions
+
+    public func places() async throws -> [PlaceDTO] {
+        let res: PlacesDTO = try await get("/v0/places", query: [])
+        return res.places
+    }
+
+    public func createPlace(_ body: PlaceBody) async throws -> PlaceDTO {
+        try await send("POST", "/v0/places", body: body)
+    }
+
+    public func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO {
+        try await send("PATCH", "/v0/places/\(id)", body: body)
+    }
+
+    public func deletePlace(id: UUID) async throws {
+        try await sendNoContent("DELETE", "/v0/places/\(id)")
+    }
+
+    public func postTransition(_ body: TransitionBody) async throws {
+        // The ack ({recorded, transition}) isn't needed by the device; the server
+        // owns debounce + fan-out. Decode into a throwaway to reuse `send`.
+        struct Ack: Decodable {}
+        let _: Ack = try await send("POST", "/v0/transition", body: body)
     }
 
     // MARK: - Plumbing

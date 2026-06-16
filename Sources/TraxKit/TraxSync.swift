@@ -16,6 +16,9 @@ public final class TraxSync {
     /// My active outgoing shares (who I'm sharing with). Held in memory — small,
     /// no delta/persistence needed; refreshed alongside the feed.
     public private(set) var outgoing: [ShareDTO] = []
+    /// Recent place enter/leave events from people sharing with me (newest first,
+    /// capped). Accumulated from feed pages; transient (not persisted).
+    public private(set) var recentTransitions: [TransitionDTO] = []
 
     private let transport: any TraxTransport
     private let store: TraxStore
@@ -49,6 +52,7 @@ public final class TraxSync {
             while true {
                 let page = try await transport.feed(since: since > 0 ? since : nil, limit: nil)
                 store.applyFeedPage(page)
+                if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
                 guard page.hasMore, page.syncTs > since else { break }
                 since = page.syncTs
             }
@@ -111,14 +115,68 @@ public final class TraxSync {
         await refreshOutgoing()
     }
 
-    /// Producer hook: ingest one fix. The full CoreLocation producer (acquire +
-    /// cadence + region transitions) lands on top of this next.
+    /// Producer hook: ingest one fix.
     @discardableResult
     public func track(_ body: TrackBody) async throws -> TrackAckDTO {
         try await transport.track(body)
     }
 
+    // MARK: - Places (the user's own)
+
+    /// Pull the user's places into the local store (drives the Places tab + the
+    /// geofence monitor).
+    public func loadPlaces() async {
+        do {
+            let places = try await transport.places()
+            store.replacePlaces(places)
+            lastError = nil
+        } catch is CancellationError {
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
+    @discardableResult
+    public func createPlace(_ body: PlaceBody) async throws -> PlaceDTO {
+        let p = try await transport.createPlace(body)
+        await loadPlaces()
+        return p
+    }
+
+    @discardableResult
+    public func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO {
+        let p = try await transport.updatePlace(id: id, body)
+        await loadPlaces()
+        return p
+    }
+
+    public func deletePlace(id: UUID) async throws {
+        try await transport.deletePlace(id: id)
+        await loadPlaces()
+    }
+
+    /// Geofence-monitor hook: publish a device-detected enter/leave. Fire-and-log
+    /// — the server owns debounce + fan-out.
+    public func postTransition(placeID: UUID, event: String, lat: Double? = nil, lng: Double? = nil) async {
+        do {
+            try await transport.postTransition(TransitionBody(placeId: placeID, event: event, lat: lat, lng: lng))
+        } catch is CancellationError {
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
     // MARK: - helpers
+
+    /// Merge new transitions (newest first, dedup by id, cap 50).
+    private func mergeTransitions(_ incoming: [TransitionDTO]) {
+        var seen = Set(recentTransitions.map(\.id))
+        var merged = recentTransitions
+        for t in incoming where !seen.contains(t.id) {
+            merged.append(t); seen.insert(t.id)
+        }
+        recentTransitions = Array(merged.sorted { $0.createdAt > $1.createdAt }.prefix(50))
+    }
 
     private func describe(_ error: Error) -> String {
         if let te = error as? TraxError { return te.description }

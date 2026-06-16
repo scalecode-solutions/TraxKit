@@ -108,8 +108,10 @@ struct TraxMapScreen: View {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
         .sheet(item: $detail) { c in
-            TraxMemberDetail(card: c) { selected = c.id; focus(on: c.id) }
-                .presentationDetents([.height(280), .medium])
+            TraxMemberDetail(card: c, transitions: sync.recentTransitions.filter { $0.ownerId == c.ownerId }) {
+                selected = c.id; focus(on: c.id)
+            }
+            .presentationDetents([.height(320), .medium])
         }
     }
 
@@ -169,6 +171,7 @@ struct MemberCard: Identifiable {
 /// actions, which come with later pieces).
 struct TraxMemberDetail: View {
     let card: MemberCard
+    var transitions: [TransitionDTO] = []
     let onFocus: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -186,6 +189,19 @@ struct TraxMemberDetail: View {
                     Text(card.status.lastUpdated).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+            }
+
+            if let latest = transitions.first {
+                HStack(spacing: 6) {
+                    Image(systemName: latest.event == "enter" ? "arrow.down.to.line.compact" : "arrow.up.from.line.compact")
+                    Text("\(latest.event == "enter" ? "Arrived at" : "Left") \(latest.placeEmoji ?? "") \(latest.placeName)")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary, in: .rect(cornerRadius: 10))
             }
 
             HStack(spacing: 10) {

@@ -56,6 +56,29 @@ public final class ContactEntity {
     }
 }
 
+/// One of the signed-in user's own saved places (home/work/custom). The Places
+/// tab queries these, and the geofence monitor turns each into a CLCircularRegion.
+@Model
+public final class PlaceEntity {
+    @Attribute(.unique) public var id: UUID
+    public var ownerId: UUID
+    public var name: String
+    public var type: String      // home | work | custom
+    public var lat: Double
+    public var lng: Double
+    public var radiusM: Int
+    public var emoji: String?
+    public var address: String?
+    public var updatedAt: Int64
+
+    public init(id: UUID, ownerId: UUID, name: String, type: String, lat: Double, lng: Double,
+                radiusM: Int, emoji: String?, address: String?, updatedAt: Int64) {
+        self.id = id; self.ownerId = ownerId; self.name = name; self.type = type
+        self.lat = lat; self.lng = lng; self.radiusM = radiusM; self.emoji = emoji
+        self.address = address; self.updatedAt = updatedAt
+    }
+}
+
 /// Single-row persisted feed cursor (the `syncTs` watermark), kept in the same
 /// store as the data so it advances transactionally.
 @Model
