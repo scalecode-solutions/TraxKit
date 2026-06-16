@@ -40,11 +40,13 @@ struct TraxMapScreen: View {
 
     @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
+    @Query private var places: [PlaceEntity]
 
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var selected: UUID?
     @State private var showShareSheet = false
     @State private var detail: MemberCard?
+    @State private var style: TraxMapStyle = .standard
 
     private var contactsByID: [UUID: ContactEntity] {
         Dictionary(contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -84,12 +86,23 @@ struct TraxMapScreen: View {
     var body: some View {
         Map(position: $camera, selection: $selected) {
             UserAnnotation()   // the signed-in user's own blue dot
+            // Own saved places — muted context pins.
+            ForEach(places) { p in
+                Marker(p.name, monogram: Text(p.emoji ?? "📍"),
+                       coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lng))
+                    .tint(.secondary)
+            }
+            // Sharers — avatar pins (Life360 feel).
             ForEach(plottable) { s in
-                Marker(name(for: s.ownerId),
-                       coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0))
-                    .tag(s.id)
+                Annotation(name(for: s.ownerId),
+                           coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0)) {
+                    AvatarPin(id: s.ownerId, name: name(for: s.ownerId),
+                              avatar: avatar(for: s.ownerId), selected: selected == s.id)
+                }
+                .tag(s.id)
             }
         }
+        .mapStyle(style.style)
         .onChange(of: selected) { _, new in focus(on: new) }
         .overlay(alignment: .top) {
             if let err = sync.lastError {
@@ -98,6 +111,7 @@ struct TraxMapScreen: View {
                     .foregroundStyle(.white).padding(.top, 8)
             }
         }
+        .overlay(alignment: .topLeading) { mapControls }
         .overlay(alignment: .bottom) { peopleBar }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -113,6 +127,28 @@ struct TraxMapScreen: View {
             }
             .presentationDetents([.height(320), .medium])
         }
+    }
+
+    /// Floating map controls: style toggle + recenter-on-me.
+    private var mapControls: some View {
+        VStack(spacing: 10) {
+            Menu {
+                Picker("Map style", selection: $style) {
+                    ForEach(TraxMapStyle.allCases) { Text($0.label).tag($0) }
+                }
+            } label: { controlIcon("map") }
+            Button { withAnimation { camera = .userLocation(fallback: .automatic) } } label: {
+                controlIcon("location.fill")
+            }
+        }
+        .padding(.leading, 12).padding(.top, 8)
+    }
+
+    private func controlIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 16, weight: .medium))
+            .frame(width: 40, height: 40)
+            .background(.thinMaterial, in: .circle)
     }
 
     @ViewBuilder private var peopleBar: some View {
@@ -153,6 +189,46 @@ struct TraxMapScreen: View {
             .padding(.vertical, 8).background(.thinMaterial, in: .capsule)
             .padding(.horizontal, 8).padding(.bottom, 12)
         }
+    }
+}
+
+/// Map style choices (the floating toggle).
+enum TraxMapStyle: String, CaseIterable, Identifiable {
+    case standard, hybrid, satellite
+    var id: Self { self }
+    var label: String {
+        switch self { case .standard: "Standard"; case .hybrid: "Hybrid"; case .satellite: "Satellite" }
+    }
+    var style: MapStyle {
+        switch self {
+        case .standard:  .standard(elevation: .realistic)
+        case .hybrid:    .hybrid(elevation: .realistic)
+        case .satellite: .imagery(elevation: .realistic)
+        }
+    }
+}
+
+/// A sharer's map pin: avatar in a white-ringed circle with a pointer, accent
+/// ring + lift when selected. The Life360-style member pin.
+struct AvatarPin: View {
+    let id: UUID
+    let name: String
+    let avatar: String?
+    var selected: Bool = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TraxAvatar(id: id, name: name, avatarBase64: avatar, size: selected ? 48 : 40)
+                .overlay(Circle().stroke(selected ? Color.accentColor : .white, lineWidth: 3))
+                .background(Circle().fill(.white).padding(-1))
+                .shadow(radius: 3, y: 1)
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 9))
+                .rotationEffect(.degrees(180))
+                .foregroundStyle(selected ? Color.accentColor : .white)
+                .offset(y: -2)
+        }
+        .animation(.spring(duration: 0.25), value: selected)
     }
 }
 
