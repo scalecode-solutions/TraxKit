@@ -48,6 +48,11 @@ struct TraxMapScreen: View {
     @State private var detail: MemberCard?
     @State private var detailDetent: PresentationDetent = .medium
     @State private var style: TraxMapStyle = .standard
+    /// While a member card is open (and no journey trail is up), follow this
+    /// owner: re-center on their new fixes, map panning behind them. Cleared when
+    /// the card closes or a journey takes over the camera.
+    @State private var following: UUID?
+    @State private var lastSpan: MKCoordinateSpan?
 
     private var contactsByID: [UUID: ContactEntity] {
         Dictionary(contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -88,9 +93,27 @@ struct TraxMapScreen: View {
             detail = card(for: sh)
             detailDetent = .medium
             sync.clearTrail()
+            following = sh.ownerId   // follow their live position
         } else {
             detail = nil
+            following = nil
             sync.clearMember()
+        }
+    }
+
+    /// Coordinate key of the followed owner — changes when their fix updates.
+    private var followKey: String {
+        guard let f = following, let s = plottable.first(where: { $0.ownerId == f }) else { return "" }
+        return "\(s.lat ?? 0),\(s.lng ?? 0)"
+    }
+
+    /// Re-center on the followed owner, preserving the user's current zoom.
+    private func followRecenter() {
+        guard let f = following, let s = plottable.first(where: { $0.ownerId == f }),
+              let lat = s.lat, let lng = s.lng else { return }
+        let span = lastSpan ?? MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        withAnimation(.easeInOut(duration: 0.4)) {
+            camera = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: lat, longitude: lng), span: span))
         }
     }
 
@@ -98,6 +121,7 @@ struct TraxMapScreen: View {
     /// journey on the map (a trip's path / a visit's spot), frame it.
     private func onJourney(_ ownerID: UUID, _ item: TimelineItem) {
         detailDetent = .height(150)
+        following = nil   // a journey is being framed — stop live-follow
         switch item {
         case .trip(let t):
             Task {
@@ -161,7 +185,9 @@ struct TraxMapScreen: View {
             }
         }
         .mapStyle(style.style)
+        .onMapCameraChange(frequency: .onEnd) { ctx in lastSpan = ctx.region.span }
         .onChange(of: selected) { _, new in onSelect(new) }
+        .onChange(of: followKey) { _, _ in followRecenter() }
         .overlay(alignment: .top) {
             if let err = sync.lastError {
                 Text(err).font(.caption).padding(8)

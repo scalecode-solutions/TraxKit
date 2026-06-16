@@ -22,7 +22,7 @@ import UIKit
 @MainActor
 public final class TraxLocationProducer: NSObject {
     /// Heartbeat: republish at least this often even when stationary (continuous mode).
-    public var heartbeat: TimeInterval = 90
+    public var heartbeat: TimeInterval = 60
 
     /// Set by the host when the set of people actively watching changes. Drives
     /// the watcher-aware tier. Re-evaluates cadence on change.
@@ -93,12 +93,16 @@ public final class TraxLocationProducer: NSObject {
         if let b = battery, b <= 5 { return nil }                 // critical: cheapest
         if !hasWatchers && !timelineEnabled { return nil }        // nobody watching: cheapest
 
+        // Tuned for a tiny close network (≤6 users): tight when moving, since the
+        // upload volume is trivial. 10s is the sweet spot; ~5s while driving.
         var base: TimeInterval
         switch motion {
-        case "automotive", "running": base = 15
-        case "walking", "cycling":    base = 30
-        case "stationary":            base = 120
-        default:                      base = 30
+        case "automotive": base = 5    // traveling — keep the dot live
+        case "running":    base = 7
+        case "cycling":    base = 10
+        case "walking":    base = 12
+        case "stationary": base = 60   // parked — refresh occasionally
+        default:           base = 10   // unknown motion — the sweet spot
         }
         if let b = battery {
             if b <= 15 { base *= 3 }
