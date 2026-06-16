@@ -21,15 +21,11 @@ struct ContentView: View {
             currentUserID: UUID(uuidString: profile.userID) ?? UUID(),
             tokenProvider: tokenProvider
         )
-        return NavigationStack {
-            TraxLocationView(config: config, store: TraxStore(inMemory: true))
-                .navigationTitle("Trax")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Sign Out", role: .destructive) { auth.logOut() }
-                    }
-                }
+        // TraxKit owns the whole experience (tabs, map, places, settings). The lab
+        // is just the auth shell — it injects the sign-out action, which the SPM
+        // surfaces in the Me tab.
+        return TraxRootView(config: config, store: TraxStore(inMemory: true)) {
+            auth.logOut()
         }
     }
 }

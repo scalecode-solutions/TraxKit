@@ -71,6 +71,11 @@ public final class TraxSync {
         }
     }
 
+    /// The caller's own identity from the people directory (name + avatar).
+    public func me() async throws -> TraxContact {
+        try await transport.me()
+    }
+
     /// Fetch the people directory (friends + my own entry) into the local store
     /// for labelling sharers and populating the share picker.
     public func loadContacts() async {

@@ -25,32 +25,14 @@ public enum ShareDuration: CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// The embedded TraxKit screen: a map of who's sharing their location with you,
-/// plus the share controls. The host (TraxLab/Clingy) drops this in; TraxKit owns
-/// the map + sheet. Pull-feed driven (HTTP poll) — no socket. Also runs the
-/// location producer so the signed-in user's own movement is published.
-public struct TraxLocationView: View {
-    private let config: TraxConfig
-    private let store: TraxStore
-    @State private var sync: TraxSync
-    @State private var producer: TraxLocationProducer
-
-    public init(config: TraxConfig, store: TraxStore) {
-        self.config = config
-        self.store = store
-        let s = TraxSync(config: config, store: store)
-        _sync = State(initialValue: s)
-        _producer = State(initialValue: TraxLocationProducer { body in
-            try? await s.track(body)
-        })
-    }
-
-    public var body: some View {
-        TraxMapScreen(sync: sync)
-            .modelContainer(store.container)
-            .onAppear { producer.start() }
-            .onDisappear { producer.stop() }
-    }
+/// The map of who's sharing their location with you (the primary surface), plus
+/// the share controls. A composable piece — `TraxRootView` hosts it in a tab and
+/// owns the producer + poll loop; a host could also embed it directly. Pull-feed
+/// driven (HTTP poll) — no socket.
+public struct TraxMapView: View {
+    let sync: TraxSync
+    public init(sync: TraxSync) { self.sync = sync }
+    public var body: some View { TraxMapScreen(sync: sync) }
 }
 
 struct TraxMapScreen: View {
@@ -115,7 +97,6 @@ struct TraxMapScreen: View {
         .sheet(isPresented: $showShareSheet) {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
-        .task { await loop() }
     }
 
     @ViewBuilder private var peopleBar: some View {
@@ -141,19 +122,6 @@ struct TraxMapScreen: View {
                 .padding(.horizontal, 12)
             }
             .padding(.vertical, 8).background(.thinMaterial, in: .capsule).padding(.bottom, 12)
-        }
-    }
-
-    /// Initial load + poll loop (5s). `.task` cancels on disappear.
-    private func loop() async {
-        await sync.loadContacts()
-        await sync.refresh()
-        await sync.refreshOutgoing()
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(5))
-            if Task.isCancelled { break }
-            await sync.refresh()
-            await sync.refreshOutgoing()
         }
     }
 }
