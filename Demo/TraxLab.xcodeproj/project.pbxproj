@@ -1,0 +1,295 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 90;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		TLB000PKITBUILDFILE00001 /* TraxKit in Frameworks */ = {isa = PBXBuildFile; productRef = TLB000PKITPRODUCTDEP01 /* TraxKit */; };
+		TLB000MVAUTHBUILD000001 /* MvAuth in Frameworks */ = {isa = PBXBuildFile; productRef = TLB000MVAUTHPRODDEP00001 /* MvAuth */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		TLB000APPPRODUCT00000001 /* TraxLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TraxLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		TLB000SOURCEROOTGROUP001 /* TraxLab */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TraxLab;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		TLB000FRAMEWORKSPHASE001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				TLB000PKITBUILDFILE00001 /* TraxKit in Frameworks */,
+				TLB000MVAUTHBUILD000001 /* MvAuth in Frameworks */,
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		TLB000MAINGROUP000000001 = {
+			isa = PBXGroup;
+			children = (
+				TLB000SOURCEROOTGROUP001 /* TraxLab */,
+				TLB000PRODGROUP000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		TLB000PRODGROUP000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				TLB000APPPRODUCT00000001 /* TraxLab.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		TLB000APPTARGET000000001 /* TraxLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TLB000APPCONFLIST0000001 /* Build configuration list for PBXNativeTarget "TraxLab" */;
+			buildPhases = (
+				TLB000SOURCESPHASE000001 /* Sources */,
+				TLB000FRAMEWORKSPHASE001 /* Frameworks */,
+				TLB000RESOURCESPHASE0001 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				TLB000SOURCEROOTGROUP001 /* TraxLab */,
+			);
+			name = TraxLab;
+			packageProductDependencies = (
+				TLB000PKITPRODUCTDEP01 /* TraxKit */,
+				TLB000MVAUTHPRODDEP00001 /* MvAuth */,
+			);
+			productName = TraxLab;
+			productReference = TLB000APPPRODUCT00000001 /* TraxLab.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		TLB000PROJECT00000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					TLB000APPTARGET000000001 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+				};
+			};
+			buildConfigurationList = TLB000PROJCONFLIST000001 /* Build configuration list for PBXProject "TraxLab" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = TLB000MAINGROUP000000001;
+			packageReferences = (
+				TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */,
+				TLB000MVAUTHLOCALPKG001 /* XCLocalSwiftPackageReference "../../MvAuth-iOS" */,
+			);
+			preferredProjectObjectVersion = 90;
+			productRefGroup = TLB000PRODGROUP000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				TLB000APPTARGET000000001 /* TraxLab */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		TLB000RESOURCESPHASE0001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		TLB000SOURCESPHASE000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		TLB000APPDEBUGCONFIG0001 /* Debug configuration for PBXNativeTarget "TraxLab" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLab;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		TLB000APPRELEASECONFIG01 /* Release configuration for PBXNativeTarget "TraxLab" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLab;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		TLB000PROJDEBUGCONFIG001 /* Debug configuration for PBXProject "TraxLab" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		TLB000PROJRELEASECONFG01 /* Release configuration for PBXProject "TraxLab" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		TLB000APPCONFLIST0000001 /* Build configuration list for PBXNativeTarget "TraxLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TLB000APPDEBUGCONFIG0001 /* Debug configuration for PBXNativeTarget "TraxLab" */,
+				TLB000APPRELEASECONFIG01 /* Release configuration for PBXNativeTarget "TraxLab" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		TLB000PROJCONFLIST000001 /* Build configuration list for PBXProject "TraxLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TLB000PROJDEBUGCONFIG001 /* Debug configuration for PBXProject "TraxLab" */,
+				TLB000PROJRELEASECONFG01 /* Release configuration for PBXProject "TraxLab" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+		TLB000MVAUTHLOCALPKG001 /* XCLocalSwiftPackageReference "../../MvAuth-iOS" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../MvAuth-iOS";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		TLB000PKITPRODUCTDEP01 /* TraxKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TraxKit;
+		};
+		TLB000MVAUTHPRODDEP00001 /* MvAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MvAuth;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = TLB000PROJECT00000000001 /* Project object */;
+}
