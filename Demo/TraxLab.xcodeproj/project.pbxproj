@@ -100,7 +100,7 @@
 			mainGroup = TLB000MAINGROUP000000001;
 			packageReferences = (
 				TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */,
-				TLB000MVAUTHLOCALPKG001 /* XCLocalSwiftPackageReference "../../MvAuth-iOS" */,
+				TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = TLB000PRODGROUP000000001 /* Products */;
@@ -326,16 +326,23 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ..;
 		};
-		TLB000MVAUTHLOCALPKG001 /* XCLocalSwiftPackageReference "../../MvAuth-iOS" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../MvAuth-iOS";
-		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/scalecode-solutions/MvAuth-iOS.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		TLB000MVAUTHPRODDEP00001 /* MvAuth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = TLB000MVAUTHLOCALPKG001 /* XCLocalSwiftPackageReference "../../MvAuth-iOS" */;
+			package = TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */;
 			productName = MvAuth;
 		};
 		TLB000PKITPRODUCTDEP01 /* TraxKit */ = {
