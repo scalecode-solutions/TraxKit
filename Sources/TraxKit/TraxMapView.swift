@@ -27,21 +27,29 @@ public enum ShareDuration: CaseIterable, Identifiable, Sendable {
 
 /// The embedded TraxKit screen: a map of who's sharing their location with you,
 /// plus the share controls. The host (TraxLab/Clingy) drops this in; TraxKit owns
-/// the map + sheet. Pull-feed driven (HTTP poll) — no socket.
+/// the map + sheet. Pull-feed driven (HTTP poll) — no socket. Also runs the
+/// location producer so the signed-in user's own movement is published.
 public struct TraxLocationView: View {
     private let config: TraxConfig
     private let store: TraxStore
     @State private var sync: TraxSync
+    @State private var producer: TraxLocationProducer
 
     public init(config: TraxConfig, store: TraxStore) {
         self.config = config
         self.store = store
-        _sync = State(initialValue: TraxSync(config: config, store: store))
+        let s = TraxSync(config: config, store: store)
+        _sync = State(initialValue: s)
+        _producer = State(initialValue: TraxLocationProducer { body in
+            try? await s.track(body)
+        })
     }
 
     public var body: some View {
         TraxMapScreen(sync: sync)
             .modelContainer(store.container)
+            .onAppear { producer.start() }
+            .onDisappear { producer.stop() }
     }
 }
 
@@ -51,7 +59,8 @@ struct TraxMapScreen: View {
     @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
 
-    @State private var camera: MapCameraPosition = .automatic
+    @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var selected: UUID?
     @State private var showShareSheet = false
 
     private var contactsByID: [UUID: ContactEntity] {
@@ -65,13 +74,31 @@ struct TraxMapScreen: View {
         return "Member \(id.uuidString.prefix(8))"
     }
 
+    private func coordinate(of id: UUID) -> CLLocationCoordinate2D? {
+        guard let s = plottable.first(where: { $0.id == id }), let lat = s.lat, let lng = s.lng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    /// Animate the camera onto a sharer when their marker is tapped/selected.
+    private func focus(on id: UUID?) {
+        guard let id, let coord = coordinate(of: id) else { return }
+        withAnimation(.easeInOut) {
+            camera = .region(MKCoordinateRegion(
+                center: coord,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))
+        }
+    }
+
     var body: some View {
-        Map(position: $camera) {
+        Map(position: $camera, selection: $selected) {
+            UserAnnotation()   // the signed-in user's own blue dot
             ForEach(plottable) { s in
                 Marker(name(for: s.ownerId),
                        coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0))
+                    .tag(s.id)
             }
         }
+        .onChange(of: selected) { _, new in focus(on: new) }
         .overlay(alignment: .top) {
             if let err = sync.lastError {
                 Text(err).font(.caption).padding(8)
@@ -100,11 +127,15 @@ struct TraxMapScreen: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(plottable) { s in
-                        VStack(spacing: 2) {
-                            Image(systemName: "mappin.circle.fill").font(.title2)
-                            Text(name(for: s.ownerId)).font(.caption2).lineLimit(1)
+                        Button { selected = s.id; focus(on: s.id) } label: {
+                            VStack(spacing: 2) {
+                                Image(systemName: "mappin.circle.fill").font(.title2)
+                                Text(name(for: s.ownerId)).font(.caption2).lineLimit(1)
+                            }
+                            .padding(.horizontal, 6)
+                            .foregroundStyle(selected == s.id ? Color.accentColor : .primary)
                         }
-                        .padding(.horizontal, 6)
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 12)
