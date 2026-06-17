@@ -40,8 +40,14 @@ public struct TraxSettingsView: View {
                     }
                     Spacer()
                     if let c = selfCoord {
-                        TraxWeatherBadge(store: weather, latitude: c.latitude, longitude: c.longitude,
-                                         showCondition: false).font(.title3)
+                        NavigationLink {
+                            TraxWeatherDetailView(store: weather, latitude: c.latitude,
+                                                  longitude: c.longitude, title: "My Weather")
+                        } label: {
+                            TraxWeatherBadge(store: weather, latitude: c.latitude, longitude: c.longitude,
+                                             showCondition: false).font(.title3)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.vertical, 4)

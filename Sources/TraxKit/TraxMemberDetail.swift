@@ -8,6 +8,7 @@ struct TraxMemberDetail: View {
     let card: MemberCard
     let sync: TraxSync
     let weather: TraxWeatherStore
+    let onWeather: () -> Void
     let onHistory: () -> Void
 
     private var latestTransition: TransitionDTO? {
@@ -35,10 +36,13 @@ struct TraxMemberDetail: View {
                             .labelStyle(.titleAndIcon).font(.subheadline)
                             .foregroundStyle(card.status.battery.isLow ? .red : .secondary)
                     }
-                    // Weather at their (presented) location.
-                    TraxWeatherBadge(store: weather, latitude: card.coordinate.latitude,
-                                     longitude: card.coordinate.longitude)
-                        .font(.subheadline)
+                    // Weather at their (presented) location — tap for full forecast.
+                    Button(action: onWeather) {
+                        TraxWeatherBadge(store: weather, latitude: card.coordinate.latitude,
+                                         longitude: card.coordinate.longitude)
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 

@@ -49,6 +49,8 @@ struct TraxMapScreen: View {
     @State private var showShareSheet = false
     @State private var detail: MemberCard?
     @State private var historyTarget: HistoryTarget?   // pushes the full timeline for a friend
+    @State private var weatherTarget: WeatherTarget?   // pushes the full forecast for a friend
+    @State private var showWeatherPins = false         // temp badges on every sharer pin
     @State private var style: TraxMapStyle = .standard
     /// While a member card is open (and no journey trail is up), follow this
     /// owner: re-center on their new fixes, map panning behind them. Cleared when
@@ -91,6 +93,14 @@ struct TraxMapScreen: View {
             detail = nil
             following = nil
         }
+    }
+
+    /// Re-key the weather sweep when the toggle flips or sharer positions move
+    /// across regions (keeps badges warm without refetching block-to-block).
+    private var weatherPinsKey: String {
+        guard showWeatherPins else { return "off" }
+        return plottable.map { "\(Int((($0.lat ?? 0)) * 10)),\(Int((($0.lng ?? 0)) * 10))" }
+            .sorted().joined(separator: "|")
     }
 
     /// Coordinate key of the followed owner — changes when their fix updates.
@@ -143,7 +153,9 @@ struct TraxMapScreen: View {
             Annotation(name(for: s.ownerId),
                        coordinate: CLLocationCoordinate2D(latitude: s.lat ?? 0, longitude: s.lng ?? 0)) {
                 AvatarPin(id: s.ownerId, name: name(for: s.ownerId),
-                          avatar: avatar(for: s.ownerId), selected: selected == s.id)
+                          avatar: avatar(for: s.ownerId), selected: selected == s.id,
+                          tempText: showWeatherPins
+                            ? weather.cached(latitude: s.lat ?? 0, longitude: s.lng ?? 0)?.tempText : nil)
             }
             .tag(s.id)
         }
@@ -155,6 +167,12 @@ struct TraxMapScreen: View {
         .onMapCameraChange(frequency: .onEnd) { ctx in lastSpan = ctx.region.span }
         .onChange(of: selected) { _, new in onSelect(new) }
         .onChange(of: followKey) { _, _ in followRecenter() }
+        .task(id: weatherPinsKey) {
+            guard showWeatherPins else { return }
+            for s in plottable {
+                await weather.refresh(latitude: s.lat ?? 0, longitude: s.lng ?? 0)
+            }
+        }
         .overlay(alignment: .top) {
             if let err = sync.lastError {
                 Text(err).font(.caption).padding(8)
@@ -173,10 +191,14 @@ struct TraxMapScreen: View {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
         .sheet(item: $detail) { c in
-            TraxMemberDetail(card: c, sync: sync, weather: weather) {
+            TraxMemberDetail(card: c, sync: sync, weather: weather, onWeather: {
+                detail = nil                 // dismiss the glance…
+                weatherTarget = WeatherTarget(ownerId: c.ownerId, name: c.name,
+                                              lat: c.coordinate.latitude, lng: c.coordinate.longitude)
+            }, onHistory: {
                 detail = nil                 // dismiss the glance…
                 historyTarget = HistoryTarget(ownerId: c.ownerId, name: c.name)  // …push their timeline
-            }
+            })
             .presentationDetents([.height(220), .medium])
             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             .presentationDragIndicator(.visible)
@@ -186,6 +208,10 @@ struct TraxMapScreen: View {
         }
         .navigationDestination(item: $historyTarget) { t in
             TraxTimelineView(sync: sync, owner: t.ownerId, title: t.name)
+        }
+        .navigationDestination(item: $weatherTarget) { t in
+            TraxWeatherDetailView(store: weather, latitude: t.lat, longitude: t.lng,
+                                  title: "\(t.name)'s Weather")
         }
     }
 
@@ -199,6 +225,10 @@ struct TraxMapScreen: View {
             } label: { controlIcon("map") }
             Button { withAnimation { camera = .userLocation(fallback: .automatic) } } label: {
                 controlIcon("location.fill")
+            }
+            Button { withAnimation { showWeatherPins.toggle() } } label: {
+                controlIcon(showWeatherPins ? "thermometer.medium" : "thermometer.low")
+                    .foregroundStyle(showWeatherPins ? Color.accentColor : .primary)
             }
         }
         .padding(.leading, 12).padding(.top, 8)
@@ -280,13 +310,24 @@ struct AvatarPin: View {
     let name: String
     let avatar: String?
     var selected: Bool = false
+    var tempText: String? = nil   // weather-pin toggle overlays the temp
 
     var body: some View {
         VStack(spacing: 0) {
-            TraxAvatar(id: id, name: name, avatarBase64: avatar, size: selected ? 48 : 40)
-                .overlay(Circle().stroke(selected ? Color.accentColor : .white, lineWidth: 3))
-                .background(Circle().fill(.white).padding(-1))
-                .shadow(radius: 3, y: 1)
+            ZStack(alignment: .topTrailing) {
+                TraxAvatar(id: id, name: name, avatarBase64: avatar, size: selected ? 48 : 40)
+                    .overlay(Circle().stroke(selected ? Color.accentColor : .white, lineWidth: 3))
+                    .background(Circle().fill(.white).padding(-1))
+                    .shadow(radius: 3, y: 1)
+                if let t = tempText {
+                    Text(t)
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(.thinMaterial, in: .capsule)
+                        .overlay(Capsule().stroke(.white, lineWidth: 1))
+                        .offset(x: 10, y: -6)
+                }
+            }
             Image(systemName: "triangle.fill")
                 .font(.system(size: 9))
                 .rotationEffect(.degrees(180))
@@ -301,6 +342,16 @@ struct AvatarPin: View {
 struct HistoryTarget: Identifiable, Hashable {
     let ownerId: UUID
     let name: String
+    var id: UUID { ownerId }
+}
+
+/// Push target for a friend's full forecast (coords carried so the screen needs
+/// no map state; Hashable for navigationDestination).
+struct WeatherTarget: Identifiable, Hashable {
+    let ownerId: UUID
+    let name: String
+    let lat: Double
+    let lng: Double
     var id: UUID { ownerId }
 }
 
