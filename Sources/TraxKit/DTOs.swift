@@ -77,6 +77,7 @@ public struct PlaceDTO: Codable, Sendable, Identifiable, Hashable {
     public let radiusM: Int
     public let emoji: String?
     public let address: String?
+    public let sharedWith: [UUID]?   // co-owner viewer ids (custom "our spot" places)
     public let createdAt: Int64
     public let updatedAt: Int64
 }

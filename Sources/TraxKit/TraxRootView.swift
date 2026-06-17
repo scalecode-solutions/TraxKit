@@ -62,12 +62,15 @@ public struct TraxRootView: View {
         await sync.refresh()
         await sync.refreshOutgoing()
         producer.hasWatchers = !sync.outgoing.isEmpty   // watcher-aware cadence
+        var tick = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             if Task.isCancelled { break }
             await sync.refresh()
             await sync.refreshOutgoing()
             producer.hasWatchers = !sync.outgoing.isEmpty
+            tick += 1
+            if tick % 6 == 0 { await sync.loadPlaces() }   // ~30s: pick up places others shared with me
         }
     }
 }

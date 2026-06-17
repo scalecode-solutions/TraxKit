@@ -117,7 +117,7 @@ public struct TraxHub: View {
             .sheet(isPresented: $showShareSheet) {
                 TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
             }
-            .sheet(item: $editing) { mode in PlaceEditor(sync: sync, mode: mode) }
+            .sheet(item: $editing) { mode in PlaceEditor(sync: sync, mode: mode, currentUserID: sync.currentUserID) }
             .navigationDestination(item: $historyTarget) { t in
                 TraxTimelineView(sync: sync, owner: t.ownerId, title: t.name)
             }
@@ -274,7 +274,8 @@ public struct TraxHub: View {
                                                                      lat: p.coordinate.latitude, lng: p.coordinate.longitude) },
                     onFocus: { focus(on: $0) })
             case .places:
-                TraxHubPlacesContent(places: places, onAdd: { editing = .new }, onEdit: { editing = .existing($0) })
+                TraxHubPlacesContent(places: places, currentUserID: sync.currentUserID, nameFor: { name(for: $0) },
+                                     onAdd: { editing = .new }, onEdit: { editing = .existing($0) })
             }
         }
     }

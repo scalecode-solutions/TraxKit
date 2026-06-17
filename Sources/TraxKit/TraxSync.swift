@@ -158,6 +158,17 @@ public final class TraxSync {
         await loadPlaces()
     }
 
+    /// Share a custom place with a friend (co-owned "our spot").
+    public func sharePlace(id: UUID, viewer: UUID) async throws {
+        try await transport.sharePlace(id: id, viewer: viewer)
+        await loadPlaces()
+    }
+
+    public func unsharePlace(id: UUID, viewer: UUID) async throws {
+        try await transport.unsharePlace(id: id, viewer: viewer)
+        await loadPlaces()
+    }
+
     /// Geofence-monitor hook: publish a device-detected enter/leave. Fire-and-log
     /// — the server owns debounce + fan-out.
     public func postTransition(placeID: UUID, event: String, lat: Double? = nil, lng: Double? = nil) async {

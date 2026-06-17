@@ -75,14 +75,26 @@ public final class PlaceEntity {
     public var radiusM: Int
     public var emoji: String?
     public var address: String?
+    /// Co-owner viewer ids (custom shared "our spot" places), comma-joined uuid
+    /// strings. Empty for private places. Stored as a string to stay trivially
+    /// migratable in the SPM's own store.
+    public var sharedWithRaw: String = ""
     public var updatedAt: Int64
 
     public init(id: UUID, ownerId: UUID, name: String, type: String, lat: Double, lng: Double,
-                radiusM: Int, emoji: String?, address: String?, updatedAt: Int64) {
+                radiusM: Int, emoji: String?, address: String?, sharedWith: [UUID] = [], updatedAt: Int64) {
         self.id = id; self.ownerId = ownerId; self.name = name; self.type = type
         self.lat = lat; self.lng = lng; self.radiusM = radiusM; self.emoji = emoji
-        self.address = address; self.updatedAt = updatedAt
+        self.address = address; self.sharedWithRaw = sharedWith.map(\.uuidString).joined(separator: ",")
+        self.updatedAt = updatedAt
     }
+
+    /// Co-owner viewer ids parsed from storage.
+    public var sharedWith: [UUID] {
+        sharedWithRaw.split(separator: ",").compactMap { UUID(uuidString: String($0)) }
+    }
+    /// A shared "our spot" — has co-owners beyond the creator.
+    public var isShared: Bool { !sharedWithRaw.isEmpty }
 }
 
 /// Single-row persisted feed cursor (the `syncTs` watermark), kept in the same

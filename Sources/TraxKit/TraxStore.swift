@@ -124,7 +124,7 @@ public final class TraxStore {
         for p in places {
             context.insert(PlaceEntity(id: p.id, ownerId: p.ownerId, name: p.name, type: p.type,
                                        lat: p.lat, lng: p.lng, radiusM: p.radiusM, emoji: p.emoji,
-                                       address: p.address, updatedAt: p.updatedAt))
+                                       address: p.address, sharedWith: p.sharedWith ?? [], updatedAt: p.updatedAt))
         }
         save()
     }

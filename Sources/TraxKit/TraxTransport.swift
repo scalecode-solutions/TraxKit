@@ -24,6 +24,9 @@ public protocol TraxTransport: Sendable {
     func createPlace(_ body: PlaceBody) async throws -> PlaceDTO
     func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO
     func deletePlace(id: UUID) async throws
+    /// Share a custom place with a friend (co-owned "our spot").
+    func sharePlace(id: UUID, viewer: UUID) async throws
+    func unsharePlace(id: UUID, viewer: UUID) async throws
     func postTransition(_ body: TransitionBody) async throws
     // Timeline (self).
     func trips(since: Int64?, limit: Int?) async throws -> [TripDTO]
@@ -129,6 +132,15 @@ public struct HTTPTraxTransport: TraxTransport {
         try await sendNoContent("DELETE", "/v0/places/\(id)")
     }
 
+    public func sharePlace(id: UUID, viewer: UUID) async throws {
+        struct Body: Encodable { let viewer: UUID }
+        try await sendNoContent("POST", "/v0/places/\(id)/shares", body: Body(viewer: viewer))
+    }
+
+    public func unsharePlace(id: UUID, viewer: UUID) async throws {
+        try await sendNoContent("DELETE", "/v0/places/\(id)/shares/\(viewer)")
+    }
+
     public func postTransition(_ body: TransitionBody) async throws {
         // The ack ({recorded, transition}) isn't needed by the device; the server
         // owns debounce + fan-out. Decode into a throwaway to reuse `send`.
@@ -202,6 +214,15 @@ public struct HTTPTraxTransport: TraxTransport {
     private func sendNoContent(_ method: String, _ path: String) async throws {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
+        _ = try await rawData(req)
+    }
+
+    /// POST/DELETE with a JSON body and no decoded response (204).
+    private func sendNoContent<Body: Encodable>(_ method: String, _ path: String, body: Body) async throws {
+        var req = URLRequest(url: baseURL.appendingPathComponent(path))
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(body)
         _ = try await rawData(req)
     }
 
