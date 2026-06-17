@@ -16,6 +16,8 @@ public struct TraxRootView: View {
     @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
     @State private var weather: TraxWeatherStore
+    @State private var selfState = TraxSelfState()
+    @State private var geocoder = TraxGeocoder()
     @State private var permissions = TraxPermissions()
 
     /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab. The
@@ -36,48 +38,39 @@ public struct TraxRootView: View {
 
     public var body: some View {
         if permissions.isAuthorized {
-            tabs
+            hub
         } else {
             TraxOnboardingView(permissions: permissions)   // front door until location is granted
         }
     }
 
-    private var tabs: some View {
-        TabView {
-            Tab("Map", systemImage: "map") {
-                NavigationStack { TraxMapView(sync: sync, weather: weather).traxInlineNavTitle("Trax") }
-            }
-            Tab("Places", systemImage: "mappin.and.ellipse") {
-                NavigationStack { TraxPlacesView(sync: sync).traxInlineNavTitle("Places") }
-            }
-            Tab("Timeline", systemImage: "clock.arrow.circlepath") {
-                NavigationStack { TraxTimelineView(sync: sync, owner: sync.currentUserID, title: "My Timeline") }
-            }
-            Tab("Me", systemImage: "person.crop.circle") {
-                NavigationStack { TraxSettingsView(sync: sync, weather: weather, onSignOut: onSignOut).traxInlineNavTitle("Me") }
-            }
-        }
-        .modelContainer(store.container)
-        .background { GeofenceSyncer(monitor: geofence) }   // keeps regions in sync with my places
-        .task { await runLoop() }
-        .onDisappear { producer.stop(); geofence.stopAll() }
+    private var hub: some View {
+        TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, onSignOut: onSignOut)
+            .modelContainer(store.container)
+            .background { GeofenceSyncer(monitor: geofence) }   // keeps regions in sync with my places
+            .task { await runLoop() }
+            .onDisappear { producer.stop(); geofence.stopAll(); selfState.stop() }
     }
 
     /// Start producing, then keep the feed + outgoing shares + my places fresh on
     /// a 5s poll. `.task` cancels when the root disappears.
     private func runLoop() async {
         producer.start()
+        selfState.start()
         await sync.loadContacts()
         await sync.loadPlaces()
         await sync.refresh()
         await sync.refreshOutgoing()
         producer.hasWatchers = !sync.outgoing.isEmpty   // watcher-aware cadence
+        var tick = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             if Task.isCancelled { break }
             await sync.refresh()
             await sync.refreshOutgoing()
             producer.hasWatchers = !sync.outgoing.isEmpty
+            tick += 1
+            if tick % 6 == 0 { await sync.loadPlaces() }   // ~30s: pick up places others shared with me
         }
     }
 }
