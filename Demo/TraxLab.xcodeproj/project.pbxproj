@@ -146,6 +146,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_FILE = "TraxLab-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "TraxLab.entitlements";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -182,6 +183,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_FILE = "TraxLab-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "TraxLab.entitlements";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;

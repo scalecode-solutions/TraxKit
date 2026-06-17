@@ -8,13 +8,17 @@ public struct TraxConfig: Sendable {
     /// The signed-in user, so the UI can tell "mine" from "theirs".
     public let currentUserID: UUID
     public let tokenProvider: @Sendable () async -> String?
+    /// Optional weather source; nil → TraxKit's WeatherKit default.
+    public let weatherProvider: (any TraxWeatherProviding)?
 
     public init(baseURL: URL,
                 currentUserID: UUID,
-                tokenProvider: @escaping @Sendable () async -> String?) {
+                tokenProvider: @escaping @Sendable () async -> String?,
+                weatherProvider: (any TraxWeatherProviding)? = nil) {
         self.baseURL = baseURL
         self.currentUserID = currentUserID
         self.tokenProvider = tokenProvider
+        self.weatherProvider = weatherProvider
     }
 
     /// The live transport for this config.

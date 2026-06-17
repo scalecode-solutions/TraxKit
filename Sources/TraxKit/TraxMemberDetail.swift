@@ -7,6 +7,7 @@ import SwiftUI
 struct TraxMemberDetail: View {
     let card: MemberCard
     let sync: TraxSync
+    let weather: TraxWeatherStore
     let onHistory: () -> Void
 
     private var latestTransition: TransitionDTO? {
@@ -27,11 +28,17 @@ struct TraxMemberDetail: View {
                     Text(card.status.lastUpdated).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if let b = card.status.battery.text {
-                    Label(b, systemImage: card.status.battery.charging ? "battery.100.bolt"
-                          : (card.status.battery.isLow ? "battery.25" : "battery.100"))
-                        .labelStyle(.titleAndIcon).font(.subheadline)
-                        .foregroundStyle(card.status.battery.isLow ? .red : .secondary)
+                VStack(alignment: .trailing, spacing: 4) {
+                    if let b = card.status.battery.text {
+                        Label(b, systemImage: card.status.battery.charging ? "battery.100.bolt"
+                              : (card.status.battery.isLow ? "battery.25" : "battery.100"))
+                            .labelStyle(.titleAndIcon).font(.subheadline)
+                            .foregroundStyle(card.status.battery.isLow ? .red : .secondary)
+                    }
+                    // Weather at their (presented) location.
+                    TraxWeatherBadge(store: weather, latitude: card.coordinate.latitude,
+                                     longitude: card.coordinate.longitude)
+                        .font(.subheadline)
                 }
             }
 

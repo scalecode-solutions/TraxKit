@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- WeatherKit for current-conditions. Requires the App ID to have WeatherKit
+	     enabled in the developer portal; until then WeatherKit returns errors and
+	     the weather badge simply doesn't render (graceful). -->
+	<key>com.apple.developer.weatherkit</key>
+	<true/>
+</dict>
+</plist>

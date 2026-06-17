@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 /// The "Me" tab: own identity, who I'm sharing with (+ stop controls), and
 /// sharing/privacy settings. Composable piece hosted in the Me tab.
@@ -8,14 +9,18 @@ import SwiftData
 /// retention, permissions, and history land here as those pieces are built.
 public struct TraxSettingsView: View {
     let sync: TraxSync
+    let weather: TraxWeatherStore
     let onSignOut: (() -> Void)?
 
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
     @State private var me: TraxContact?
+    @State private var selfCoord: CLLocationCoordinate2D?
     @State private var stoppingAll = false
+    private let locator = CLLocationManager()
 
-    public init(sync: TraxSync, onSignOut: (() -> Void)? = nil) {
+    public init(sync: TraxSync, weather: TraxWeatherStore, onSignOut: (() -> Void)? = nil) {
         self.sync = sync
+        self.weather = weather
         self.onSignOut = onSignOut
     }
 
@@ -32,6 +37,11 @@ public struct TraxSettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(me?.name ?? "You").font(.headline)
                         Text("Signed in").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if let c = selfCoord {
+                        TraxWeatherBadge(store: weather, latitude: c.latitude, longitude: c.longitude,
+                                         showCondition: false).font(.title3)
                     }
                 }
                 .padding(.vertical, 4)
@@ -68,7 +78,10 @@ public struct TraxSettingsView: View {
                 }
             }
         }
-        .task { me = try? await sync.me() }
+        .task {
+            me = try? await sync.me()
+            selfCoord = locator.location?.coordinate   // current fix for self weather
+        }
     }
 
     private func stop(_ id: UUID) {

@@ -15,6 +15,7 @@ public struct TraxRootView: View {
     @State private var sync: TraxSync
     @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
+    @State private var weather: TraxWeatherStore
     @State private var permissions = TraxPermissions()
 
     /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab. The
@@ -30,6 +31,7 @@ public struct TraxRootView: View {
         _geofence = State(initialValue: TraxGeofenceMonitor { placeID, event in
             await s.postTransition(placeID: placeID, event: event)
         })
+        _weather = State(initialValue: TraxWeatherStore(provider: config.weatherProvider ?? WeatherKitProvider()))
     }
 
     public var body: some View {
@@ -43,7 +45,7 @@ public struct TraxRootView: View {
     private var tabs: some View {
         TabView {
             Tab("Map", systemImage: "map") {
-                NavigationStack { TraxMapView(sync: sync).traxInlineNavTitle("Trax") }
+                NavigationStack { TraxMapView(sync: sync, weather: weather).traxInlineNavTitle("Trax") }
             }
             Tab("Places", systemImage: "mappin.and.ellipse") {
                 NavigationStack { TraxPlacesView(sync: sync).traxInlineNavTitle("Places") }
@@ -52,7 +54,7 @@ public struct TraxRootView: View {
                 NavigationStack { TraxTimelineView(sync: sync, owner: sync.currentUserID, title: "My Timeline") }
             }
             Tab("Me", systemImage: "person.crop.circle") {
-                NavigationStack { TraxSettingsView(sync: sync, onSignOut: onSignOut).traxInlineNavTitle("Me") }
+                NavigationStack { TraxSettingsView(sync: sync, weather: weather, onSignOut: onSignOut).traxInlineNavTitle("Me") }
             }
         }
         .modelContainer(store.container)

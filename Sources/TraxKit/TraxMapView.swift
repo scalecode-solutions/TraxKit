@@ -31,12 +31,14 @@ public enum ShareDuration: CaseIterable, Identifiable, Sendable {
 /// driven (HTTP poll) — no socket.
 public struct TraxMapView: View {
     let sync: TraxSync
-    public init(sync: TraxSync) { self.sync = sync }
-    public var body: some View { TraxMapScreen(sync: sync) }
+    let weather: TraxWeatherStore
+    public init(sync: TraxSync, weather: TraxWeatherStore) { self.sync = sync; self.weather = weather }
+    public var body: some View { TraxMapScreen(sync: sync, weather: weather) }
 }
 
 struct TraxMapScreen: View {
     let sync: TraxSync
+    let weather: TraxWeatherStore
 
     @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
@@ -171,7 +173,7 @@ struct TraxMapScreen: View {
             TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
         }
         .sheet(item: $detail) { c in
-            TraxMemberDetail(card: c, sync: sync) {
+            TraxMemberDetail(card: c, sync: sync, weather: weather) {
                 detail = nil                 // dismiss the glance…
                 historyTarget = HistoryTarget(ownerId: c.ownerId, name: c.name)  // …push their timeline
             }
