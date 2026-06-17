@@ -15,6 +15,7 @@ public struct TraxRootView: View {
     @State private var sync: TraxSync
     @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
+    @State private var permissions = TraxPermissions()
 
     /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab. The
     /// host owns the auth action; the SPM owns the chrome.
@@ -32,6 +33,14 @@ public struct TraxRootView: View {
     }
 
     public var body: some View {
+        if permissions.isAuthorized {
+            tabs
+        } else {
+            TraxOnboardingView(permissions: permissions)   // front door until location is granted
+        }
+    }
+
+    private var tabs: some View {
         TabView {
             Tab("Map", systemImage: "map") {
                 NavigationStack { TraxMapView(sync: sync).traxInlineNavTitle("Trax") }
