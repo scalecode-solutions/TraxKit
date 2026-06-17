@@ -48,6 +48,7 @@ public struct TraxMemberStatus: Sendable {
     public let battery: TraxBatteryStatus
     public let lastUpdated: String  // "Just now", "3 min ago", "Not updating"
     public let isStale: Bool        // fix older than the stale threshold
+    public let isLive: Bool         // fresh fix — show the live/online dot
 
     /// The one-line status, Life360-style: "Driving · 68 mph" or "Walking".
     public var line: String {
@@ -59,6 +60,8 @@ public struct TraxMemberStatus: Sendable {
 
     /// Stale threshold — beyond this, we say the fix isn't updating.
     static let staleAfter: TimeInterval = 10 * 60
+    /// Live threshold — a fix this fresh lights the "live/online" dot.
+    static let liveWithin: TimeInterval = 2 * 60
 
     public static func make(speedMps: Double?, motion: String?, batteryLevel: Int?,
                             batteryCharging: Bool, recordedAtMs: Int64?, now: Date = Date()) -> TraxMemberStatus {
@@ -70,13 +73,15 @@ public struct TraxMemberStatus: Sendable {
 
         var lastUpdated = "—"
         var stale = false
+        var live = false
         if let ms = recordedAtMs {
             let age = now.timeIntervalSince1970 - Double(ms) / 1000
             stale = age > staleAfter
+            live = age <= liveWithin
             lastUpdated = stale ? "Not updating" : relative(age)
         }
         return TraxMemberStatus(activity: activity, speedMph: mph, battery: battery,
-                                lastUpdated: lastUpdated, isStale: stale)
+                                lastUpdated: lastUpdated, isStale: stale, isLive: live)
     }
 
     private static func activity(motion: String?, speedMps: Double?) -> TraxActivity {

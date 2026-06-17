@@ -160,7 +160,7 @@ public struct TraxHub: View {
             }
             ForEach(people) { p in
                 Annotation(p.name, coordinate: p.coordinate) {
-                    AvatarPin(id: p.ownerId, name: p.name, avatar: p.avatar, selected: detailID == p.id)
+                    AvatarPin(id: p.ownerId, name: p.name, avatar: p.avatar, selected: detailID == p.id, live: p.isLive)
                         .onTapGesture { enterDetail(p) }
                 }
             }

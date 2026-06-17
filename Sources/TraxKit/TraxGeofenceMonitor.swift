@@ -7,8 +7,10 @@ import CoreLocation
 /// fans out. iOS wakes the app on a crossing even when backgrounded, so this
 /// keeps working on a drive.
 ///
-/// v1 monitors up to iOS's 20-region cap directly (no proximity rotation) —
-/// real users have far fewer than 20 places; rotation is a later refinement.
+/// iOS caps an app at 20 monitored regions, so when there are more places (own +
+/// shared "our spots"), we monitor the **nearest 20 to the user** and re-rotate
+/// as they move — the OwnTracks / Clingy strategy. Far-away places get picked up
+/// when you travel toward them.
 @MainActor
 public final class TraxGeofenceMonitor: NSObject {
     /// iOS hard limit on monitored regions per app.
@@ -23,17 +25,17 @@ public final class TraxGeofenceMonitor: NSObject {
         manager.delegate = self
     }
 
-    /// Reconcile monitored regions to `places` (the user's own). Adds new ones,
-    /// drops removed/edited ones, and re-registers a place whose center/radius
-    /// changed. Caps at 20 (logs the overflow rather than silently dropping).
-    public func sync(places: [PlaceEntity]) {
+    /// Reconcile monitored regions to `places`. Adds new ones, drops removed/edited
+    /// ones, re-registers a place whose center/radius changed. When over the
+    /// 20-region cap, monitors the nearest 20 to `around` (the user's location) and
+    /// logs the overflow rather than silently dropping.
+    public func sync(places: [PlaceEntity], around: CLLocationCoordinate2D? = nil) {
         let s = manager.authorizationStatus
         guard s == .authorizedAlways || s == .authorizedWhenInUse else { return }
 
-        let wanted = Array(places.prefix(Self.maxRegions))
+        let wanted = nearest(places, to: around ?? manager.location?.coordinate)
         if places.count > Self.maxRegions {
-            // No silent cap — see DESIGN.md "no silent truncation".
-            print("TraxGeofenceMonitor: \(places.count) places > 20-region cap; monitoring nearest-by-list first 20")
+            print("TraxGeofenceMonitor: \(places.count) places > 20-region cap; monitoring nearest \(Self.maxRegions)")
         }
 
         let wantedByID = Dictionary(uniqueKeysWithValues: wanted.map { ($0.id.uuidString, $0) })
@@ -61,6 +63,22 @@ public final class TraxGeofenceMonitor: NSObject {
             region.notifyOnExit = true
             manager.startMonitoring(for: region)
         }
+    }
+
+    /// The nearest `maxRegions` places to `coord` (closest geofences win the
+    /// limited slots). Returns all when under the cap; falls back to list order
+    /// when we have no location to sort by.
+    private func nearest(_ places: [PlaceEntity], to coord: CLLocationCoordinate2D?) -> [PlaceEntity] {
+        guard places.count > Self.maxRegions else { return places }
+        guard let coord else { return Array(places.prefix(Self.maxRegions)) }
+        let here = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        return places
+            .sorted { a, b in
+                here.distance(from: CLLocation(latitude: a.lat, longitude: a.lng))
+                    < here.distance(from: CLLocation(latitude: b.lat, longitude: b.lng))
+            }
+            .prefix(Self.maxRegions)
+            .map { $0 }
     }
 
     public func stopAll() {
