@@ -23,6 +23,9 @@ struct TraxPerson: Identifiable {
 
     var exactGeocode: Bool { precision == "exact" }
 
+    /// Live/online — fresh fix (self is always live; we have its current coord).
+    var isLive: Bool { isSelf ? true : (status?.isLive ?? false) }
+
     /// Instant label (no geocode): place name, else status line, else generic.
     var fallbackLabel: String {
         if atPlace, let n = placeName { return "At \(n)" }
@@ -93,6 +96,7 @@ struct TraxPersonRow: View {
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomLeading) {
                     TraxAvatar(id: person.ownerId, name: person.name, avatarBase64: person.avatar, size: 52)
+                        .overlay(alignment: .topTrailing) { TraxPresenceDot(live: person.isLive) }
                     if person.battery.text != nil {
                         TraxBatteryPill(battery: person.battery).offset(x: -4, y: 6)
                     }
@@ -161,6 +165,7 @@ struct AvatarPin: View {
     let avatar: String?
     var selected: Bool = false
     var tempText: String? = nil
+    var live: Bool? = nil   // nil = no presence dot; true = green (live), false = gray (stale)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -169,6 +174,7 @@ struct AvatarPin: View {
                     .overlay(Circle().stroke(selected ? Color.accentColor : .white, lineWidth: 3))
                     .background(Circle().fill(.white).padding(-1))
                     .shadow(radius: 3, y: 1)
+                    .overlay(alignment: .bottomTrailing) { presenceDot }
                 if let t = tempText {
                     Text(t)
                         .font(.system(size: 10, weight: .bold))
@@ -183,5 +189,24 @@ struct AvatarPin: View {
                 .foregroundStyle(selected ? Color.accentColor : .white).offset(y: -2)
         }
         .animation(.spring(duration: 0.25), value: selected)
+    }
+
+    @ViewBuilder private var presenceDot: some View {
+        if let live {
+            Circle().fill(live ? Color.green : Color.secondary)
+                .frame(width: 12, height: 12)
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .offset(x: 1, y: 1)
+        }
+    }
+}
+
+/// Small reusable presence dot for list rows (green = live, gray = stale).
+struct TraxPresenceDot: View {
+    let live: Bool
+    var body: some View {
+        Circle().fill(live ? Color.green : Color.secondary)
+            .frame(width: 11, height: 11)
+            .overlay(Circle().stroke(.background, lineWidth: 2))
     }
 }

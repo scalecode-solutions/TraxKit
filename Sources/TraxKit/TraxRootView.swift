@@ -47,7 +47,7 @@ public struct TraxRootView: View {
     private var hub: some View {
         TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, onSignOut: onSignOut)
             .modelContainer(store.container)
-            .background { GeofenceSyncer(monitor: geofence) }   // keeps regions in sync with my places
+            .background { GeofenceSyncer(monitor: geofence, selfState: selfState) }   // keeps nearest-20 regions in sync
             .task { await runLoop() }
             .onDisappear { producer.stop(); geofence.stopAll(); selfState.stop() }
     }
@@ -79,6 +79,7 @@ public struct TraxRootView: View {
 /// regions reconciled. Lives inside the modelContainer so its @Query resolves.
 private struct GeofenceSyncer: View {
     let monitor: TraxGeofenceMonitor
+    let selfState: TraxSelfState
     @Query private var places: [PlaceEntity]
 
     /// @Model isn't Equatable, so onChange keys on a geometry signature that
@@ -87,9 +88,19 @@ private struct GeofenceSyncer: View {
         places.map { "\($0.id.uuidString):\($0.lat),\($0.lng),\($0.radiusM)" }.sorted().joined(separator: "|")
     }
 
+    /// ~1km bucket of the user's position — re-rotate the nearest-20 set when they
+    /// travel into a new bucket (not on every fix).
+    private var coordBucket: String {
+        guard let c = selfState.coordinate else { return "" }
+        return "\(Int(c.latitude * 100)),\(Int(c.longitude * 100))"
+    }
+
+    private func resync() { monitor.sync(places: places, around: selfState.coordinate) }
+
     var body: some View {
         Color.clear
-            .onAppear { monitor.sync(places: places) }
-            .onChange(of: signature) { _, _ in monitor.sync(places: places) }
+            .onAppear { resync() }
+            .onChange(of: signature) { _, _ in resync() }
+            .onChange(of: coordBucket) { _, _ in resync() }
     }
 }
