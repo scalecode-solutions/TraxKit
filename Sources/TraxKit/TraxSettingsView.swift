@@ -1,26 +1,19 @@
 import SwiftUI
 import SwiftData
-import CoreLocation
 
-/// The "Me" tab: own identity, who I'm sharing with (+ stop controls), and
-/// sharing/privacy settings. Composable piece hosted in the Me tab.
-///
-/// Own identity + outgoing-share management are live; sharing defaults,
-/// retention, permissions, and history land here as those pieces are built.
+/// Settings (the gear): own identity, who I'm sharing with (+ stop controls), and
+/// sharing/privacy settings. Pushed from the hub's gear; "you" at a glance lives
+/// in the People pill now, so this is settings, not the primary self surface.
 public struct TraxSettingsView: View {
     let sync: TraxSync
-    let weather: TraxWeatherStore
     let onSignOut: (() -> Void)?
 
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
     @State private var me: TraxContact?
-    @State private var selfCoord: CLLocationCoordinate2D?
     @State private var stoppingAll = false
-    private let locator = CLLocationManager()
 
-    public init(sync: TraxSync, weather: TraxWeatherStore, onSignOut: (() -> Void)? = nil) {
+    public init(sync: TraxSync, onSignOut: (() -> Void)? = nil) {
         self.sync = sync
-        self.weather = weather
         self.onSignOut = onSignOut
     }
 
@@ -39,16 +32,6 @@ public struct TraxSettingsView: View {
                         Text("Signed in").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if let c = selfCoord {
-                        NavigationLink {
-                            TraxWeatherDetailView(store: weather, latitude: c.latitude,
-                                                  longitude: c.longitude, title: "My Weather")
-                        } label: {
-                            TraxWeatherBadge(store: weather, latitude: c.latitude, longitude: c.longitude,
-                                             showCondition: false).font(.title3)
-                        }
-                        .buttonStyle(.plain)
-                    }
                 }
                 .padding(.vertical, 4)
             }
@@ -84,10 +67,7 @@ public struct TraxSettingsView: View {
                 }
             }
         }
-        .task {
-            me = try? await sync.me()
-            selfCoord = locator.location?.coordinate   // current fix for self weather
-        }
+        .task { me = try? await sync.me() }
     }
 
     private func stop(_ id: UUID) {

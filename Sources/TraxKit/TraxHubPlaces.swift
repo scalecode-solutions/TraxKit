@@ -2,94 +2,64 @@ import SwiftUI
 import SwiftData
 import CoreLocation
 
-/// Saved places (home/work/custom), shared with friends, with arrival/departure
-/// alerts. Lists the user's places and lets them add/edit/delete. Hosted in the
-/// Places tab.
-public struct TraxPlacesView: View {
-    let sync: TraxSync
+// Places pill pane: "Add a Place" + the user's saved places. Tap a row to edit;
+// the hub renders the place pins on the map when this pill is active. The editor
+// sheet lives here too (moved from the old standalone Places tab).
 
-    @Query(sort: \PlaceEntity.updatedAt, order: .reverse) private var places: [PlaceEntity]
-    @State private var editing: PlaceEdit?
-    @State private var error: String?
+struct TraxHubPlacesContent: View {
+    let places: [PlaceEntity]
+    let onAdd: () -> Void
+    let onEdit: (PlaceEntity) -> Void
 
-    public init(sync: TraxSync) { self.sync = sync }
-
-    public var body: some View {
-        List {
-            if places.isEmpty {
-                Section {
-                    ContentUnavailableView {
-                        Label("No places yet", systemImage: "mappin.slash")
-                    } description: {
-                        Text("Save Home, Work, or any spot — friends you share with get notified when you arrive or leave.")
-                    } actions: {
-                        Button("Add a place") { editing = .new }
-                    }
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: onAdd) {
+                HStack(spacing: 14) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 44, height: 44).background(Color.accentColor, in: .circle)
+                    Text("Add a Place").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.accentColor)
+                    Spacer()
                 }
-            } else {
-                Section {
-                    ForEach(places) { p in
-                        Button { editing = .existing(p) } label: { placeRow(p) }
-                            .buttonStyle(.plain)
-                    }
-                    .onDelete(perform: delete)
-                }
+                .padding(.horizontal, 16).padding(.vertical, 10).contentShape(Rectangle())
             }
-            if let error { Section { Text(error).foregroundStyle(.red).font(.footnote) } }
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { editing = .new } label: { Image(systemName: "plus") }
-            }
-        }
-        .sheet(item: $editing) { mode in
-            PlaceEditor(sync: sync, mode: mode)
-        }
-    }
+            .buttonStyle(.plain)
 
-    private func placeRow(_ p: PlaceEntity) -> some View {
-        HStack(spacing: 12) {
-            Text(p.emoji ?? defaultEmoji(p.type)).font(.title2)
-                .frame(width: 36, height: 36)
-                .background(Color.accentColor.opacity(0.12), in: .circle)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(p.name).font(.body)
-                Text("\(p.type.capitalized) · \(p.radiusM) m").font(.caption).foregroundStyle(.secondary)
+            if !places.isEmpty { Divider().padding(.leading, 74) }
+
+            ForEach(places) { p in
+                Button { onEdit(p) } label: {
+                    HStack(spacing: 14) {
+                        Text(p.emoji ?? defaultEmoji(p.type)).font(.title2)
+                            .frame(width: 44, height: 44).background(Color.accentColor.opacity(0.12), in: .circle)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(p.name).font(.system(size: 17, weight: .semibold))
+                            Text("\(p.type.capitalized) · \(p.radiusM) m").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.forward").font(.footnote).foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 10).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if p.id != places.last?.id { Divider().padding(.leading, 74) }
             }
-            Spacer()
         }
     }
 
     private func defaultEmoji(_ type: String) -> String {
         switch type { case "home": "🏠"; case "work": "💼"; default: "📍" }
     }
-
-    private func delete(_ offsets: IndexSet) {
-        let ids = offsets.map { places[$0].id }
-        Task {
-            for id in ids {
-                do { try await sync.deletePlace(id: id) } catch { self.error = describe(error) }
-            }
-        }
-    }
-
-    private func describe(_ e: Error) -> String {
-        if let te = e as? TraxError { return te.message }
-        return String(describing: e)
-    }
 }
 
-/// Add-new vs edit-existing, the sheet's mode.
+/// Add-new vs edit-existing, the editor sheet's mode.
 enum PlaceEdit: Identifiable {
     case new
     case existing(PlaceEntity)
-    var id: String {
-        switch self { case .new: "new"; case .existing(let p): p.id.uuidString }
-    }
+    var id: String { switch self { case .new: "new"; case .existing(let p): p.id.uuidString } }
 }
 
-/// Create/edit a place. Uses the device's current location as the default center
-/// (a drop-pin map picker is a later refinement).
+/// Create/edit a place. Uses the device's current location as the default center.
 struct PlaceEditor: View {
     let sync: TraxSync
     let mode: PlaceEdit

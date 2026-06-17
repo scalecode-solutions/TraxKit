@@ -1,6 +1,29 @@
 import SwiftUI
 import SwiftData
 
+/// Live-share length when starting a share (mirrors Tangle's options; default
+/// 15 min, with "Until I stop" = indefinite). See mvTrax/docs/DESIGN.md.
+public enum ShareDuration: CaseIterable, Identifiable, Sendable {
+    case fifteenMinutes, oneHour, eightHours, indefinite
+    public var id: Self { self }
+    public var label: String {
+        switch self {
+        case .fifteenMinutes: "15 min"
+        case .oneHour:        "1 hour"
+        case .eightHours:     "8 hours"
+        case .indefinite:     "Until I stop"
+        }
+    }
+    public var expiresInSeconds: Int? {
+        switch self {
+        case .fifteenMinutes: 15 * 60
+        case .oneHour:        60 * 60
+        case .eightHours:     8 * 60 * 60
+        case .indefinite:     nil
+        }
+    }
+}
+
 /// How much location a share reveals (maps to the server's precision tiers).
 enum SharePrecision: String, CaseIterable, Identifiable {
     case exact, place, approx
