@@ -56,11 +56,16 @@ struct TraxHubPeopleContent: View {
         if people.isEmpty {
             TraxHubPeopleEmpty()
         } else {
-            ForEach(people) { person in
-                TraxPersonRow(person: person, geocoder: geocoder) { onTap(person) }
-                if person.id != people.last?.id {
-                    Divider().padding(.leading, 80)
-                }
+            // You first, as a distinct tinted card; then the sharers, divider-separated.
+            let me = people.first { $0.isSelf }
+            let peers = people.filter { !$0.isSelf }
+            if let me {
+                TraxPersonRow(person: me, geocoder: geocoder) { onTap(me) }
+                if !peers.isEmpty { Color.clear.frame(height: 4) }
+            }
+            ForEach(peers) { peer in
+                TraxPersonRow(person: peer, geocoder: geocoder) { onTap(peer) }
+                if peer.id != peers.last?.id { Divider().padding(.leading, 80) }
             }
         }
     }
@@ -116,7 +121,16 @@ struct TraxPersonRow: View {
                 Image(systemName: "chevron.forward")
                     .font(.system(size: 15, weight: .semibold)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 16).padding(.vertical, 12).contentShape(Rectangle())
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background {
+                // Self reads as a distinct tinted card; sharers stay flat.
+                if person.isSelf {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                        .padding(.horizontal, 8)
+                }
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .task(id: "\(Int(person.coordinate.latitude * 1000)),\(Int(person.coordinate.longitude * 1000))") {
