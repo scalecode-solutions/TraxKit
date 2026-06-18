@@ -262,13 +262,22 @@ public struct TraxHub: View {
 
     @ViewBuilder private var panelContent: some View {
         if let subject = detailSubject {
-            TraxHubDetailContent(
-                person: subject, sync: sync, weather: weather, geocoder: geocoder,
-                selfCoordinate: selfState.coordinate, myPlaces: places,
-                onShare: { showShareSheet = true },
-                onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
-                                                           lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
-                onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })
+            if subject.isSelf {
+                TraxMeView(
+                    person: subject, sync: sync, weather: weather, geocoder: geocoder,
+                    onShare: { showShareSheet = true },
+                    onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
+                                                               lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
+                    onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })
+            } else {
+                TraxHubDetailContent(
+                    person: subject, sync: sync, weather: weather, geocoder: geocoder,
+                    selfCoordinate: selfState.coordinate, myPlaces: places,
+                    onShare: { showShareSheet = true },
+                    onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
+                                                               lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
+                    onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })
+            }
         } else {
             switch pill {
             case .people:
