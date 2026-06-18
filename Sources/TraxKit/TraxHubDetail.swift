@@ -51,7 +51,7 @@ struct TraxHubDetailContent: View {
             HStack(spacing: 14) {
                 TraxAvatar(id: person.ownerId, name: person.name, avatarBase64: person.avatar, size: 62)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(person.name).font(.system(size: 22, weight: .bold))
+                    Text(person.displayName).font(.system(size: 22, weight: .bold))
                     Text([label, person.secondary].compactMap { $0 }.joined(separator: " · "))
                         .font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2)
                 }

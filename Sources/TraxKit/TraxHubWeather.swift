@@ -51,7 +51,7 @@ struct TraxHubWeatherContent: View {
             HStack(spacing: 12) {
                 TraxAvatar(id: person.ownerId, name: person.name, avatarBase64: person.avatar, size: 44)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(person.name).font(.system(size: 16, weight: .semibold))
+                    Text(person.displayName).font(.system(size: 16, weight: .semibold))
                     TraxWeatherBadge(store: weather, latitude: person.coordinate.latitude,
                                      longitude: person.coordinate.longitude, showCondition: true)
                         .font(.subheadline)

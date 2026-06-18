@@ -26,6 +26,10 @@ struct TraxPerson: Identifiable {
     /// Live/online — fresh fix (self is always live; we have its current coord).
     var isLive: Bool { isSelf ? true : (status?.isLive ?? false) }
 
+    /// Display label — "Me" for self, otherwise the directory name. Avatars still
+    /// use `name`, so the self initials stay real if there's no photo.
+    var displayName: String { isSelf ? "Me" : name }
+
     /// Instant label (no geocode): place name, else status line, else generic.
     var fallbackLabel: String {
         if atPlace, let n = placeName { return "At \(n)" }
@@ -102,7 +106,7 @@ struct TraxPersonRow: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(person.name).font(.system(size: 17, weight: .bold))
+                    Text(person.displayName).font(.system(size: 17, weight: .bold))
                     Text(label).font(.system(size: 14)).foregroundStyle(.primary.opacity(0.85)).lineLimit(1)
                     if let sec = person.secondary {
                         Text(sec).font(.system(size: 14)).foregroundStyle(.secondary)

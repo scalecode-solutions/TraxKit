@@ -109,6 +109,11 @@ public struct TraxHub: View {
                     Text("Trax").font(.system(size: 26, weight: .bold))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showShareSheet = true } label: {
+                        Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 17, weight: .medium))
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { TraxSettingsView(sync: sync, onSignOut: onSignOut) } label: {
                         Image(systemName: "gearshape").font(.system(size: 17, weight: .medium))
                     }
@@ -159,7 +164,7 @@ public struct TraxHub: View {
                     .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
             }
             ForEach(people) { p in
-                Annotation(p.name, coordinate: p.coordinate) {
+                Annotation(p.displayName, coordinate: p.coordinate) {
                     AvatarPin(id: p.ownerId, name: p.name, avatar: p.avatar, selected: detailID == p.id, live: p.isLive)
                         .onTapGesture { enterDetail(p) }
                 }
@@ -172,7 +177,7 @@ public struct TraxHub: View {
             }
         case .weather:
             ForEach(people) { p in
-                Annotation(p.name, coordinate: p.coordinate) {
+                Annotation(p.displayName, coordinate: p.coordinate) {
                     TraxWeatherPin(store: weather, latitude: p.coordinate.latitude, longitude: p.coordinate.longitude)
                         .onTapGesture { weatherTarget = WeatherTarget(ownerId: p.ownerId, name: p.name,
                                                                       lat: p.coordinate.latitude, lng: p.coordinate.longitude) }
@@ -301,7 +306,7 @@ public struct TraxHub: View {
                     .frame(width: 32, height: 32).background(.ultraThinMaterial, in: .circle)
             }
             .buttonStyle(.plain)
-            Text(detailSubject?.name ?? "Details").font(.system(size: 20, weight: .bold)).lineLimit(1)
+            Text(detailSubject?.displayName ?? "Details").font(.system(size: 20, weight: .bold)).lineLimit(1)
             Spacer()
         }
     }
