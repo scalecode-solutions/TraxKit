@@ -190,7 +190,16 @@ struct TraxMeView: View {
             items.append(ActivityItem(icon: Self.motionIcon(t.motionType), text: Self.tripText(t),
                                       rel: Self.rel(t.startTs), ts: t.startTs))
         }
-        activity = items.sorted { $0.ts > $1.ts }.prefix(6).map { $0 }
+        // My own enter/leave events today, read back from mvTrax (durable record).
+        let startMs = Int64(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970 * 1000)
+        for tr in await sync.transitions(ownerID: person.ownerId, since: startMs, limit: 50) {
+            let arrived = tr.event == "enter"
+            items.append(ActivityItem(
+                icon: arrived ? "arrow.down.to.line.compact" : "arrow.up.from.line.compact",
+                text: "\(arrived ? "Arrived at" : "Left") \(tr.placeEmoji.map { "\($0) " } ?? "")\(tr.placeName)",
+                rel: Self.rel(tr.createdAt), ts: tr.createdAt))
+        }
+        activity = items.sorted { $0.ts > $1.ts }.prefix(8).map { $0 }
     }
 
     private var activitySection: some View {

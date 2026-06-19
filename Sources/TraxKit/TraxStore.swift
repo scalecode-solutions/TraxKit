@@ -97,6 +97,13 @@ public final class TraxStore {
         if let e = try? context.fetch(fetch).first { context.delete(e) }
     }
 
+    /// The active share where `ownerID` is sharing their location with me (the
+    /// incoming side of a relationship). Backs the embedding store's per-user lookup.
+    public func incomingShare(ownerID: UUID) -> ShareEntity? {
+        let fetch = FetchDescriptor<ShareEntity>(predicate: #Predicate { $0.ownerId == ownerID })
+        return try? context.fetch(fetch).first
+    }
+
     // MARK: - Directory
 
     public func upsertContacts(_ contacts: [TraxContact]) {

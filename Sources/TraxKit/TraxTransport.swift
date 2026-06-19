@@ -34,6 +34,8 @@ public protocol TraxTransport: Sendable {
     // Owner-scoped timeline (a friend's journeys; server gates on active share).
     func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO]
     func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO]
+    /// An owner's own enter/leave events ("read it back"; self, or exact-share friend).
+    func transitionsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TransitionDTO]
 }
 
 /// REST transport against mvTrax. A value type whose members are all Sendable, so
@@ -178,6 +180,14 @@ public struct HTTPTraxTransport: TraxTransport {
         if let limit { q.append(.init(name: "limit", value: String(limit))) }
         let res: VisitsDTO = try await get("/v0/track/\(ownerId)/visits", query: q)
         return res.visits
+    }
+
+    public func transitionsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TransitionDTO] {
+        var q: [URLQueryItem] = []
+        if let since { q.append(.init(name: "since", value: String(since))) }
+        if let limit { q.append(.init(name: "limit", value: String(limit))) }
+        let res: TransitionsDTO = try await get("/v0/track/\(ownerId)/transitions", query: q)
+        return res.transitions
     }
 
     // MARK: - Plumbing

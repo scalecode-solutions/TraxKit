@@ -88,6 +88,12 @@ public struct PlacesDTO: Codable, Sendable {
     public init(places: [PlaceDTO]) { self.places = places }
 }
 
+/// An owner's own enter/leave events (the read-back endpoint).
+public struct TransitionsDTO: Codable, Sendable {
+    public let transitions: [TransitionDTO]
+    public init(transitions: [TransitionDTO]) { self.transitions = transitions }
+}
+
 /// A place enter/leave event (someone you can see arrived at / left a place).
 public struct TransitionDTO: Codable, Sendable, Identifiable, Hashable {
     public let id: UUID

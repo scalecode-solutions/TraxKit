@@ -205,6 +205,22 @@ public final class TraxSync {
         }
     }
 
+    /// An owner's own enter/leave events (newest first). Pass `currentUserID` for
+    /// your own back-read; a friend's id works only with an active exact share.
+    /// The "read it back" path the chat bridge projects into the thread.
+    public func transitions(ownerID: UUID, since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
+        do {
+            let trs = try await transport.transitionsFor(ownerId: ownerID, since: since, limit: limit)
+            lastError = nil
+            return trs
+        } catch is CancellationError {
+            return []
+        } catch {
+            lastError = describe(error)
+            return []
+        }
+    }
+
     // MARK: - helpers
 
     /// Merge new transitions (newest first, dedup by id, cap 50).
