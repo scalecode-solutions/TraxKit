@@ -42,8 +42,8 @@ enum SharePrecision: String, CaseIterable, Identifiable {
 
 /// Pick a friend + duration + precision to start sharing; manage active shares.
 struct TraxShareSheet: View {
-    let sync: TraxSync
-    let permissions: TraxPermissions
+    let engine: TraxEngine
+    private var sync: TraxSync { engine.sync }
 
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
     @Environment(\.dismiss) private var dismiss
@@ -119,10 +119,10 @@ struct TraxShareSheet: View {
     }
 
     private func start(with viewer: UUID) {
-        // The active decision — ask for location (and motion) right here, the only
+        // The active decision — ask the host for location access right here, the only
         // moment Trax ever prompts. The share is created either way; it just won't
         // produce until location is granted (you can still watch everyone else).
-        permissions.requestPermissions()
+        engine.requestLocationAccess()
         busy = viewer; error = nil
         Task {
             defer { busy = nil }

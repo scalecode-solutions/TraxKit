@@ -9,20 +9,20 @@ import CoreLocation
 /// and tapping any person (self or sharer) swaps the panel into a detail stack.
 /// Replaces the old TabView; `TraxRootView` hosts it and owns the poll loop.
 public struct TraxHub: View {
-    let sync: TraxSync
-    let weather: TraxWeatherStore
-    let selfState: TraxSelfState
-    let geocoder: TraxGeocoder
-    let permissions: TraxPermissions
+    let engine: TraxEngine
     let embedded: Bool
     let onSignOut: (() -> Void)?
 
-    public init(sync: TraxSync, weather: TraxWeatherStore, selfState: TraxSelfState,
-                geocoder: TraxGeocoder, permissions: TraxPermissions,
-                embedded: Bool = false, onSignOut: (() -> Void)? = nil) {
-        self.sync = sync; self.weather = weather; self.selfState = selfState
-        self.geocoder = geocoder; self.permissions = permissions
-        self.embedded = embedded; self.onSignOut = onSignOut
+    private var sync: TraxSync { engine.sync }
+    private var weather: TraxWeatherStore { engine.weather }
+    private var geocoder: TraxGeocoder { engine.geocoder }
+    /// Self coordinate from the host's latest fix (replaces TraxSelfState).
+    private var selfCoordinate: CLLocationCoordinate2D? {
+        engine.currentFix.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+    }
+
+    public init(engine: TraxEngine, embedded: Bool = false, onSignOut: (() -> Void)? = nil) {
+        self.engine = engine; self.embedded = embedded; self.onSignOut = onSignOut
     }
 
     @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
@@ -62,13 +62,15 @@ public struct TraxHub: View {
     }
 
     private var selfPerson: TraxPerson? {
-        guard let c = selfState.coordinate else { return nil }
+        guard let c = selfCoordinate else { return nil }
         let me = contactsByID[sync.currentUserID]
         let match = placeMatch(c)
         let nm = me?.name.isEmpty == false ? me!.name : "You"
         return TraxPerson(id: "self", ownerId: sync.currentUserID, name: nm, avatar: me?.avatar,
                           coordinate: c, isSelf: true, precision: "exact", status: nil,
-                          battery: selfState.battery, placeName: match?.name, placeEmoji: match?.emoji,
+                          battery: TraxBatteryStatus(level: engine.currentFix?.batteryLevel,
+                                                     charging: engine.currentFix?.batteryCharging ?? false),
+                          placeName: match?.name, placeEmoji: match?.emoji,
                           atPlace: match != nil, fuzzRadiusM: nil)
     }
 
@@ -129,7 +131,7 @@ public struct TraxHub: View {
                 }
             }
             .sheet(isPresented: $showShareSheet) {
-                TraxShareSheet(sync: sync, permissions: permissions).presentationDetents([.medium, .large])
+                TraxShareSheet(engine: engine).presentationDetents([.medium, .large])
             }
             .sheet(item: $editing) { mode in PlaceEditor(sync: sync, mode: mode, currentUserID: sync.currentUserID) }
             .navigationDestination(item: $historyTarget) { t in
@@ -280,7 +282,7 @@ public struct TraxHub: View {
             } else {
                 TraxHubDetailContent(
                     person: subject, sync: sync, weather: weather, geocoder: geocoder,
-                    selfCoordinate: selfState.coordinate, myPlaces: places,
+                    selfCoordinate: selfCoordinate, myPlaces: places,
                     onShare: { showShareSheet = true },
                     onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
                                                                lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
@@ -358,7 +360,7 @@ public struct TraxHub: View {
         }
     }
     private func recenter() {
-        if let c = selfState.coordinate {
+        if let c = selfCoordinate {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
                 camera = .region(MKCoordinateRegion(center: c,
                     span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)))

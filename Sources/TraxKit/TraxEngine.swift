@@ -37,8 +37,9 @@ public final class TraxEngine {
 
     // MARK: - Location-facing API (replaces TraxSelfState / TraxPermissions)
 
-    /// The host's latest fix — the map's self-dot + the place editor's "use current location".
-    public var currentFix: TraxFix? { host.currentFix }
+    /// The host's latest fix — the map's self-dot + the place editor's "use current
+    /// location". Stored + @Observable (fed from the fix stream) so the UI reacts.
+    public private(set) var currentFix: TraxFix?
     public var authorization: TraxLocationAuth { host.authorization }
     public func requestLocationAccess() { host.requestLocationAccess() }
 
@@ -46,10 +47,14 @@ public final class TraxEngine {
 
     public func start() {
         guard pollTask == nil else { return }
-        // host device fixes → the share-gated, throttled poster.
+        // host device fixes → the observable self-fix + the share-gated, throttled poster.
+        currentFix = host.currentFix
         fixTask = Task { [weak self] in
             guard let self else { return }
-            for await fix in self.host.fixStream() { self.sync.ingestFix(fix) }
+            for await fix in self.host.fixStream() {
+                self.currentFix = fix
+                self.sync.ingestFix(fix)
+            }
         }
         // host geofence crossings → record + post + fan out.
         transitionTask = Task { [weak self] in
