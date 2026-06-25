@@ -7,7 +7,7 @@ import SwiftUI
 struct LoginView: View {
     let auth: AuthModel
 
-    @State private var server: LabServer = .production
+    @State private var server: LabServer = .local
     @State private var username = ""
     @State private var password = ""
     @FocusState private var focus: Field?
