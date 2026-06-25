@@ -34,6 +34,10 @@ public final class TraxStore {
     }
 
     private static func open(schema: Schema, configuration config: ModelConfiguration) -> ModelContainer {
+        // First launch: the store's parent dir (Application Support) may not exist yet,
+        // which makes the initial open fail-then-recover noisily. Pre-create it.
+        try? FileManager.default.createDirectory(at: config.url.deletingLastPathComponent(),
+                                                 withIntermediateDirectories: true)
         do {
             return try ModelContainer(for: schema, migrationPlan: TraxMigrationPlan.self, configurations: config)
         } catch {

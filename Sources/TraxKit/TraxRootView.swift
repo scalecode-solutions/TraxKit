@@ -21,8 +21,8 @@ public struct TraxRootView: View {
         // No gate — the map is just there (watch-only) until you decide to share.
         // The host owns location + the auth prompt; the kit just renders.
         TraxHub(engine: engine, embedded: embedded, onSignOut: onSignOut)
-            .modelContainer(engine.sync.container)
             .background { RegionSyncer(engine: engine) }   // immediate region reconcile on place edits
+            .modelContainer(engine.sync.container)         // outermost, so the RegionSyncer @Query gets it too
     }
 }
 
