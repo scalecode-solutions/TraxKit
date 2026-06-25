@@ -12,19 +12,26 @@ import SwiftData
 public struct TraxRootView: View {
     private let store: TraxStore
     private let onSignOut: (() -> Void)?
+    /// When true, the host owns the nav chrome (NavigationStack + leading title);
+    /// TraxHub drops its own so a host (Clingy) can wrap it with a back-to-cover header.
+    private let embedded: Bool
     @State private var sync: TraxSync
     @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
     @State private var weather: TraxWeatherStore
     @State private var selfState = TraxSelfState()
     @State private var geocoder = TraxGeocoder()
-    @State private var permissions = TraxPermissions()
+    @State private var permissions: TraxPermissions
 
     /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab. The
     /// host owns the auth action; the SPM owns the chrome.
-    public init(config: TraxConfig, store: TraxStore, onSignOut: (() -> Void)? = nil) {
+    public init(config: TraxConfig, store: TraxStore, embedded: Bool = false,
+                onSignOut: (() -> Void)? = nil,
+                onSystemDialog: (@MainActor (Bool) -> Void)? = nil) {
         self.store = store
         self.onSignOut = onSignOut
+        self.embedded = embedded
+        _permissions = State(initialValue: TraxPermissions(onSystemDialog: onSystemDialog))
         let s = TraxSync(config: config, store: store)
         _sync = State(initialValue: s)
         _producer = State(initialValue: TraxLocationProducer { body in
@@ -37,15 +44,13 @@ public struct TraxRootView: View {
     }
 
     public var body: some View {
-        if permissions.isAuthorized {
-            hub
-        } else {
-            TraxOnboardingView(permissions: permissions)   // front door until location is granted
-        }
+        // No gate, no forced choice — the map is just there, watch-only, until you
+        // decide to share. Permission rides the Share action, the way Tangle did it.
+        hub
     }
 
     private var hub: some View {
-        TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, onSignOut: onSignOut)
+        TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, permissions: permissions, embedded: embedded, onSignOut: onSignOut)
             .modelContainer(store.container)
             .background { GeofenceSyncer(monitor: geofence, selfState: selfState) }   // keeps nearest-20 regions in sync
             .task { await runLoop() }
@@ -55,22 +60,34 @@ public struct TraxRootView: View {
     /// Start producing, then keep the feed + outgoing shares + my places fresh on
     /// a 5s poll. `.task` cancels when the root disappears.
     private func runLoop() async {
-        producer.start()
         selfState.start()
         await sync.loadContacts()
         await sync.loadPlaces()
         await sync.refresh()
         await sync.refreshOutgoing()
-        producer.hasWatchers = !sync.outgoing.isEmpty   // watcher-aware cadence
+        syncProducer()
         var tick = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             if Task.isCancelled { break }
             await sync.refresh()
             await sync.refreshOutgoing()
-            producer.hasWatchers = !sync.outgoing.isEmpty
+            syncProducer()
             tick += 1
             if tick % 6 == 0 { await sync.loadPlaces() }   // ~30s: pick up places others shared with me
+        }
+    }
+
+    /// Produce location only while I'm actively sharing — start the producer when
+    /// an outgoing share exists, tear it down when none. Mirrors Tangle's
+    /// ensureProducerRunning / teardownProducerIfIdle: GPS + motion spin up only
+    /// with a live share, never on a passive map open.
+    private func syncProducer() {
+        if sync.outgoing.isEmpty {
+            producer.stop()
+        } else {
+            producer.hasWatchers = true
+            producer.start()
         }
     }
 }

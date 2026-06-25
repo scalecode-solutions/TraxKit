@@ -13,12 +13,16 @@ public struct TraxHub: View {
     let weather: TraxWeatherStore
     let selfState: TraxSelfState
     let geocoder: TraxGeocoder
+    let permissions: TraxPermissions
+    let embedded: Bool
     let onSignOut: (() -> Void)?
 
     public init(sync: TraxSync, weather: TraxWeatherStore, selfState: TraxSelfState,
-                geocoder: TraxGeocoder, onSignOut: (() -> Void)? = nil) {
+                geocoder: TraxGeocoder, permissions: TraxPermissions,
+                embedded: Bool = false, onSignOut: (() -> Void)? = nil) {
         self.sync = sync; self.weather = weather; self.selfState = selfState
-        self.geocoder = geocoder; self.onSignOut = onSignOut
+        self.geocoder = geocoder; self.permissions = permissions
+        self.embedded = embedded; self.onSignOut = onSignOut
     }
 
     @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
@@ -87,7 +91,10 @@ public struct TraxHub: View {
     // MARK: body
 
     public var body: some View {
-        NavigationStack {
+        if embedded { hubBody } else { NavigationStack { hubBody } }
+    }
+
+    @ViewBuilder private var hubBody: some View {
             GeometryReader { geo in
                 let h = panelHeight(available: geo.size.height)
                 ZStack(alignment: .bottom) {
@@ -105,8 +112,10 @@ public struct TraxHub: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)   // title + gear float over the map
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("Trax").font(.system(size: 26, weight: .bold))
+                if !embedded {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Text("Trax").font(.system(size: 26, weight: .bold))
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showShareSheet = true } label: {
@@ -120,7 +129,7 @@ public struct TraxHub: View {
                 }
             }
             .sheet(isPresented: $showShareSheet) {
-                TraxShareSheet(sync: sync).presentationDetents([.medium, .large])
+                TraxShareSheet(sync: sync, permissions: permissions).presentationDetents([.medium, .large])
             }
             .sheet(item: $editing) { mode in PlaceEditor(sync: sync, mode: mode, currentUserID: sync.currentUserID) }
             .navigationDestination(item: $historyTarget) { t in
@@ -131,7 +140,6 @@ public struct TraxHub: View {
             }
             .onChange(of: pill) { _, _ in detailID = nil }
             .onChange(of: followKey) { _, _ in followSubject() }
-        }
     }
 
     @ViewBuilder private var errorBanner: some View {

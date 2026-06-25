@@ -65,11 +65,9 @@ public final class TraxLocationProducer: NSObject {
         #if canImport(UIKit)
         UIDevice.current.isBatteryMonitoringEnabled = true
         #endif
-        switch manager.authorizationStatus {
-        case .notDetermined:        manager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse:  manager.requestAlwaysAuthorization()
-        default: break
-        }
+        // Permissions are requested up front by the onboarding (TraxPermissions),
+        // never here — the producer only consumes what's granted, so it can't
+        // ambush-prompt. Denied location simply yields no production (watch-only).
         startMotion()
         reevaluate()
         startHeartbeat()
@@ -145,7 +143,11 @@ public final class TraxLocationProducer: NSObject {
     // MARK: - Motion
 
     private func startMotion() {
-        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        // Only consume motion if it's already authorized — never trigger the
+        // prompt here (the onboarding owns that). Unauthorized → no classification;
+        // cadence just falls back to its motion-unknown default.
+        guard CMMotionActivityManager.isActivityAvailable(),
+              CMMotionActivityManager.authorizationStatus() == .authorized else { return }
         motionMgr.startActivityUpdates(to: .main) { [weak self] activity in
             guard let activity else { return }
             let m = Self.classify(activity)

@@ -40,11 +40,11 @@ struct TraxOnboardingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 } else {
-                    Text("We'll ask for location next. Choosing \u{201C}Always\u{201D} lets Trax share in the background and power Place alerts.")
+                    Text("We'll ask for location and motion next. Share your spot with the friends you choose — or deny and just watch the people who share with you.")
                         .font(.footnote).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                    Button { permissions.request() } label: {
-                        Text("Allow location").bold().frame(maxWidth: .infinity).padding(.vertical, 12)
+                    Button { permissions.requestPermissions() } label: {
+                        Text("Set Permissions").bold().frame(maxWidth: .infinity).padding(.vertical, 12)
                     }
                     .buttonStyle(.borderedProminent)
                 }
