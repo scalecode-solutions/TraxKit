@@ -10,12 +10,14 @@ import SwiftData
 /// (Tab scaffold for now — every feature lands in its real home. The Map tab can
 /// evolve into a Life360-style map + member carousel without disturbing the rest.)
 public struct TraxRootView: View {
-    private let store: TraxStore
+    /// The shared, app-wide sync — owns the feed, the data, and the chat bridge.
+    /// Injected by the host so ONE instance backs both the Trax tab and Clingy's
+    /// chat threads (the arrival/"left" bridge stays live with the tab off-screen).
+    let sync: TraxSync
     private let onSignOut: (() -> Void)?
     /// When true, the host owns the nav chrome (NavigationStack + leading title);
     /// TraxHub drops its own so a host (Clingy) can wrap it with a back-to-cover header.
     private let embedded: Bool
-    @State private var sync: TraxSync
     @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
     @State private var weather: TraxWeatherStore
@@ -23,24 +25,23 @@ public struct TraxRootView: View {
     @State private var geocoder = TraxGeocoder()
     @State private var permissions: TraxPermissions
 
-    /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab. The
-    /// host owns the auth action; the SPM owns the chrome.
-    public init(config: TraxConfig, store: TraxStore, embedded: Bool = false,
+    /// The view owns only the device-side, tab-scoped pieces (producer, geofence,
+    /// self dot, weather, permissions); the shared `sync` is injected by the host.
+    /// `onSignOut`, when provided, surfaces a Sign Out control in the Me tab.
+    public init(sync: TraxSync, embedded: Bool = false,
                 onSignOut: (() -> Void)? = nil,
                 onSystemDialog: (@MainActor (Bool) -> Void)? = nil) {
-        self.store = store
+        self.sync = sync
         self.onSignOut = onSignOut
         self.embedded = embedded
         _permissions = State(initialValue: TraxPermissions(onSystemDialog: onSystemDialog))
-        let s = TraxSync(config: config, store: store)
-        _sync = State(initialValue: s)
-        _producer = State(initialValue: TraxLocationProducer { body in
-            try? await s.track(body)
-        })
+        _producer = State(initialValue: TraxLocationProducer(send: { body in
+            try? await sync.track(body)
+        }))
         _geofence = State(initialValue: TraxGeofenceMonitor { placeID, event in
-            await s.postTransition(placeID: placeID, event: event)
+            await sync.postTransition(placeID: placeID, event: event)
         })
-        _weather = State(initialValue: TraxWeatherStore(provider: config.weatherProvider ?? WeatherKitProvider()))
+        _weather = State(initialValue: TraxWeatherStore(provider: WeatherKitProvider()))
     }
 
     public var body: some View {
@@ -51,7 +52,7 @@ public struct TraxRootView: View {
 
     private var hub: some View {
         TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, permissions: permissions, embedded: embedded, onSignOut: onSignOut)
-            .modelContainer(store.container)
+            .modelContainer(sync.container)
             .background { GeofenceSyncer(monitor: geofence, selfState: selfState) }   // keeps nearest-20 regions in sync
             .task { await runLoop() }
             .onDisappear { producer.stop(); geofence.stopAll(); selfState.stop() }
