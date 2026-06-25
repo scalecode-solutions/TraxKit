@@ -118,10 +118,32 @@ public final class TraxSync {
         await refreshOutgoing()
     }
 
-    /// Producer hook: ingest one fix.
+    /// Low-level: post one assembled track point.
     @discardableResult
     public func track(_ body: TrackBody) async throws -> TrackAckDTO {
         try await transport.track(body)
+    }
+
+    private var lastPostedAt: Date?
+
+    /// The kit's tracking demand for the host, derived purely from share state —
+    /// never leaks *who* is watching. The host decides how to satisfy it.
+    /// (No active-watcher granularity yet, so any live share → `.continuous`.)
+    public var trackingDemand: TraxTrackingDemand { outgoing.isEmpty ? .off : .continuous }
+
+    /// Ingest one enriched fix from the host and post it to mvTrax — but ONLY while
+    /// I'm sharing, throttled. This is the producer-collapse: the host owns the
+    /// device + the cadence tier; the kit just gates on sharing + throttles uploads.
+    public func ingestFix(_ fix: TraxFix, minInterval: TimeInterval = 5) {
+        guard !outgoing.isEmpty else { return }                       // not sharing → nothing to post
+        if let last = lastPostedAt, Date().timeIntervalSince(last) < minInterval { return }
+        lastPostedAt = Date()
+        let body = TrackBody(
+            lat: fix.lat, lng: fix.lng, accuracy: fix.horizontalAccuracy,
+            altitude: fix.altitude, speed: fix.speed, heading: fix.course,
+            motion: fix.motion, batteryLevel: fix.batteryLevel, batteryCharging: fix.batteryCharging,
+            clientTs: Int64(fix.timestamp.timeIntervalSince1970 * 1000))
+        Task { try? await track(body) }
     }
 
     // MARK: - Places (the user's own)
