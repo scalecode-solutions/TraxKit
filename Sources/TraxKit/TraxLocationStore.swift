@@ -39,6 +39,15 @@ public struct TraxRelationship: Sendable {
     public var isMutual: Bool { outgoing != nil && incoming != nil }
 }
 
+/// A custom place I'm currently sharing with a specific partner — the value the
+/// conversation-settings "Places shared with X" page lists. A Sendable snapshot so
+/// the host never touches the underlying @Model.
+public struct TraxSharedPlace: Identifiable, Sendable, Hashable {
+    public let id: UUID
+    public let name: String
+    public let emoji: String?
+}
+
 @MainActor
 @Observable
 public final class TraxLocationStore {
@@ -93,5 +102,21 @@ public final class TraxLocationStore {
     /// surface in a UICollectionView landing async after the initial build).
     public func backfill(with partner: UUID, limit: Int? = nil) async {
         await sync.backfillTransitions(ownerID: partner, limit: limit)
+    }
+
+    /// My custom places currently shared with `partner` (owned by me, visible to
+    /// them) — what the conversation's "Places shared with X" page lists.
+    public func sharedPlaces(with partner: UUID) -> [TraxSharedPlace] {
+        store.allPlaces()
+            .filter { $0.ownerId == sync.currentUserID && $0.sharedWith.contains(partner) }
+            .map { TraxSharedPlace(id: $0.id, name: $0.name, emoji: $0.emoji) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Stop sharing `placeID` with `partner` (revoke the share), then refresh the
+    /// local place store so the page reflects it.
+    public func stopSharing(_ placeID: UUID, with partner: UUID) async {
+        try? await sync.unsharePlace(id: placeID, viewer: partner)
+        await sync.loadPlaces()
     }
 }
