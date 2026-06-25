@@ -85,4 +85,11 @@ public final class TraxLocationStore {
     public func myTransitions(since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
         await sync.transitions(ownerID: sync.currentUserID, since: since, limit: limit)
     }
+
+    /// A `partner`'s durable enter/leave history, read back from mvTrax (gated to
+    /// what I'm allowed to see). Backfills the chat thread so past arrivals show
+    /// regardless of restarts or whether I was watching the live feed when they fired.
+    public func transitions(with partner: UUID, since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
+        await sync.transitions(ownerID: partner, since: since, limit: limit)
+    }
 }
