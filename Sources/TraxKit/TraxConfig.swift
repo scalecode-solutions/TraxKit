@@ -10,15 +10,20 @@ public struct TraxConfig: Sendable {
     public let tokenProvider: @Sendable () async -> String?
     /// Optional weather source; nil → TraxKit's WeatherKit default.
     public let weatherProvider: (any TraxWeatherProviding)?
+    /// The host's App-Group identifier for the local store (e.g.
+    /// "group.app.mvchat.Clingy3"); nil → the app's own container (TraxLab/dev).
+    public let appGroup: String?
 
     public init(baseURL: URL,
                 currentUserID: UUID,
                 tokenProvider: @escaping @Sendable () async -> String?,
-                weatherProvider: (any TraxWeatherProviding)? = nil) {
+                weatherProvider: (any TraxWeatherProviding)? = nil,
+                appGroup: String? = nil) {
         self.baseURL = baseURL
         self.currentUserID = currentUserID
         self.tokenProvider = tokenProvider
         self.weatherProvider = weatherProvider
+        self.appGroup = appGroup
     }
 
     /// The live transport for this config.
