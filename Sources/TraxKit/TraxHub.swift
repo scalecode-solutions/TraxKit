@@ -133,7 +133,7 @@ public struct TraxHub: View {
             .sheet(isPresented: $showShareSheet) {
                 TraxShareSheet(engine: engine).presentationDetents([.medium, .large])
             }
-            .sheet(item: $editing) { mode in PlaceEditor(sync: sync, mode: mode, currentUserID: sync.currentUserID) }
+            .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode) }
             .navigationDestination(item: $historyTarget) { t in
                 TraxTimelineView(sync: sync, owner: t.ownerId, title: t.name)
             }

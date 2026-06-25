@@ -120,9 +120,10 @@ final class AddressSearchModel: NSObject, MKLocalSearchCompleterDelegate {
 /// drag the map under the center pin, or tap locate-me. For an existing custom
 /// place, a "Shared with" section co-owns it with friends.
 struct PlaceEditor: View {
-    let sync: TraxSync
+    let engine: TraxEngine
     let mode: PlaceEdit
-    let currentUserID: UUID
+    private var sync: TraxSync { engine.sync }
+    private var currentUserID: UUID { engine.sync.currentUserID }
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
 
@@ -145,8 +146,11 @@ struct PlaceEditor: View {
     @State private var address: String?            // reverse-geocoded label for the pinned spot
     @FocusState private var queryFocused: Bool
 
-    private let manager = CLLocationManager()
     private let geocoder = CLGeocoder()
+    /// The host's current coordinate (was a private CLLocationManager).
+    private var currentCoordinate: CLLocationCoordinate2D? {
+        engine.currentFix.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+    }
     private var isEdit: Bool { if case .existing = mode { return true }; return false }
     private var isOwner: Bool { ownerID == currentUserID }
     private var canShare: Bool { isEdit && type == "custom" && placeID != nil }
@@ -262,8 +266,8 @@ struct PlaceEditor: View {
 
     private var locateButton: some View {
         Button {
-            manager.requestWhenInUseAuthorization()
-            if let loc = manager.location?.coordinate { flyTo(loc) }
+            engine.requestLocationAccess()
+            if let loc = currentCoordinate { flyTo(loc) }
         } label: {
             Image(systemName: "location.fill")
                 .font(.system(size: 15, weight: .semibold))
@@ -357,9 +361,9 @@ struct PlaceEditor: View {
             placeID = p.id; ownerID = p.ownerId; members = p.sharedWith
             Task { await reverseGeocode(c) }
         } else {
-            manager.requestWhenInUseAuthorization()
+            engine.requestLocationAccess()
             ownerID = currentUserID
-            if let loc = manager.location?.coordinate {
+            if let loc = currentCoordinate {
                 coord = loc
                 camera = .region(MKCoordinateRegion(center: loc, latitudinalMeters: 600, longitudinalMeters: 600))
                 Task { await reverseGeocode(loc) }
