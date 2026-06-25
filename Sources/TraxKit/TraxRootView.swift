@@ -18,7 +18,6 @@ public struct TraxRootView: View {
     /// When true, the host owns the nav chrome (NavigationStack + leading title);
     /// TraxHub drops its own so a host (Clingy) can wrap it with a back-to-cover header.
     private let embedded: Bool
-    @State private var geofence: TraxGeofenceMonitor
     @State private var weather: TraxWeatherStore
     @State private var selfState = TraxSelfState()
     @State private var geocoder = TraxGeocoder()
@@ -34,9 +33,6 @@ public struct TraxRootView: View {
         self.onSignOut = onSignOut
         self.embedded = embedded
         _permissions = State(initialValue: TraxPermissions(onSystemDialog: onSystemDialog))
-        _geofence = State(initialValue: TraxGeofenceMonitor { placeID, event in
-            await sync.postTransition(placeID: placeID, event: event)
-        })
         _weather = State(initialValue: TraxWeatherStore(provider: WeatherKitProvider()))
     }
 
@@ -49,9 +45,8 @@ public struct TraxRootView: View {
     private var hub: some View {
         TraxHub(sync: sync, weather: weather, selfState: selfState, geocoder: geocoder, permissions: permissions, embedded: embedded, onSignOut: onSignOut)
             .modelContainer(sync.container)
-            .background { GeofenceSyncer(monitor: geofence, selfState: selfState) }   // keeps nearest-20 regions in sync
             .task { await runLoop() }
-            .onDisappear { geofence.stopAll(); selfState.stop() }
+            .onDisappear { selfState.stop() }
     }
 
     /// Keep the feed + outgoing shares + my places fresh on a snappy 5s poll while
@@ -73,35 +68,5 @@ public struct TraxRootView: View {
             tick += 1
             if tick % 6 == 0 { await sync.loadPlaces() }   // ~30s: pick up places others shared with me
         }
-    }
-}
-
-/// Invisible helper: watches the user's places and keeps the geofence monitor's
-/// regions reconciled. Lives inside the modelContainer so its @Query resolves.
-private struct GeofenceSyncer: View {
-    let monitor: TraxGeofenceMonitor
-    let selfState: TraxSelfState
-    @Query private var places: [PlaceEntity]
-
-    /// @Model isn't Equatable, so onChange keys on a geometry signature that
-    /// captures adds/removes/center/radius edits.
-    private var signature: String {
-        places.map { "\($0.id.uuidString):\($0.lat),\($0.lng),\($0.radiusM)" }.sorted().joined(separator: "|")
-    }
-
-    /// ~1km bucket of the user's position — re-rotate the nearest-20 set when they
-    /// travel into a new bucket (not on every fix).
-    private var coordBucket: String {
-        guard let c = selfState.coordinate else { return "" }
-        return "\(Int(c.latitude * 100)),\(Int(c.longitude * 100))"
-    }
-
-    private func resync() { monitor.sync(places: places, around: selfState.coordinate) }
-
-    var body: some View {
-        Color.clear
-            .onAppear { resync() }
-            .onChange(of: signature) { _, _ in resync() }
-            .onChange(of: coordBucket) { _, _ in resync() }
     }
 }
