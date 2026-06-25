@@ -18,7 +18,6 @@ public struct TraxRootView: View {
     /// When true, the host owns the nav chrome (NavigationStack + leading title);
     /// TraxHub drops its own so a host (Clingy) can wrap it with a back-to-cover header.
     private let embedded: Bool
-    @State private var producer: TraxLocationProducer
     @State private var geofence: TraxGeofenceMonitor
     @State private var weather: TraxWeatherStore
     @State private var selfState = TraxSelfState()
@@ -35,9 +34,6 @@ public struct TraxRootView: View {
         self.onSignOut = onSignOut
         self.embedded = embedded
         _permissions = State(initialValue: TraxPermissions(onSystemDialog: onSystemDialog))
-        _producer = State(initialValue: TraxLocationProducer(send: { body in
-            try? await sync.track(body)
-        }))
         _geofence = State(initialValue: TraxGeofenceMonitor { placeID, event in
             await sync.postTransition(placeID: placeID, event: event)
         })
@@ -55,40 +51,27 @@ public struct TraxRootView: View {
             .modelContainer(sync.container)
             .background { GeofenceSyncer(monitor: geofence, selfState: selfState) }   // keeps nearest-20 regions in sync
             .task { await runLoop() }
-            .onDisappear { producer.stop(); geofence.stopAll(); selfState.stop() }
+            .onDisappear { geofence.stopAll(); selfState.stop() }
     }
 
-    /// Start producing, then keep the feed + outgoing shares + my places fresh on
-    /// a 5s poll. `.task` cancels when the root disappears.
+    /// Keep the feed + outgoing shares + my places fresh on a snappy 5s poll while
+    /// the tab is visible (the app-wide engine also polls, slower; TraxSync de-dupes
+    /// concurrent refreshes). The producer lifecycle is the engine's job now, so MY
+    /// location keeps broadcasting when this tab is off-screen.
     private func runLoop() async {
         selfState.start()
         await sync.loadContacts()
         await sync.loadPlaces()
         await sync.refresh()
         await sync.refreshOutgoing()
-        syncProducer()
         var tick = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             if Task.isCancelled { break }
             await sync.refresh()
             await sync.refreshOutgoing()
-            syncProducer()
             tick += 1
             if tick % 6 == 0 { await sync.loadPlaces() }   // ~30s: pick up places others shared with me
-        }
-    }
-
-    /// Produce location only while I'm actively sharing — start the producer when
-    /// an outgoing share exists, tear it down when none. Mirrors Tangle's
-    /// ensureProducerRunning / teardownProducerIfIdle: GPS + motion spin up only
-    /// with a live share, never on a passive map open.
-    private func syncProducer() {
-        if sync.outgoing.isEmpty {
-            producer.stop()
-        } else {
-            producer.hasWatchers = true
-            producer.start()
         }
     }
 }
