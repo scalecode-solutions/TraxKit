@@ -1,5 +1,5 @@
 {
-  "originHash" : "d3910fbf74c70aaec4416194c5a89ef3f8435a4919f6ebe51d36bb28c49b5931",
+  "originHash" : "bea6b2e81a69a32c4d91af9e678da136d29c4cd3f34d9ed3922b71f731a34557",
   "pins" : [
     {
       "identity" : "connect-swift",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "ed56816fe90ab872566f09ed73e28ae078057e3d",
         "version" : "1.2.3"
-      }
-    },
-    {
-      "identity" : "mvauth-ios",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/scalecode-solutions/MvAuth-iOS.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "161a230298acd45bb26bf2df0131816d8c4bf941"
       }
     },
     {

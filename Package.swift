@@ -16,9 +16,17 @@ let package = Package(
     products: [
         .library(name: "TraxKit", targets: ["TraxKit"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/connectrpc/connect-swift", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-protobuf", from: "1.27.0"),
+    ],
     targets: [
         .target(
             name: "TraxKit",
+            dependencies: [
+                .product(name: "Connect", package: "connect-swift"),
+                .product(name: "SwiftProtobuf", package: "swift-protobuf"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
