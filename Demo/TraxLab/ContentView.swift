@@ -8,25 +8,36 @@ struct ContentView: View {
     var body: some View {
         switch auth.state {
         case .loggedIn(let profile):
-            tracker(for: profile)
+            TraxLabHost(profile: profile, auth: auth)
+                .id(profile.userID)   // a fresh engine (+ per-user store) per identity
         default:
             LoginView(auth: auth)
         }
     }
+}
 
-    private func tracker(for profile: UserProfile) -> some View {
-        let tokenProvider: @Sendable () async -> String? = { [auth] in await auth.accessToken() }
+/// The dev host: builds a `TraxEngine` with the lab's device location-host
+/// (`TraxLabLocationEngine` — the seam impl), and drives `start()`/`stop()` the way
+/// real Clingy's session machinery will. TraxKit owns the rest (map, places,
+/// settings); the lab injects sign-out, which the kit surfaces in the Me view.
+struct TraxLabHost: View {
+    let auth: AuthModel
+    @State private var engine: TraxEngine
+
+    init(profile: UserProfile, auth: AuthModel) {
+        self.auth = auth
         let config = TraxConfig(
             baseURL: auth.server.traxBaseURL,
             currentUserID: UUID(uuidString: profile.userID) ?? UUID(),
-            tokenProvider: tokenProvider
+            tokenProvider: { [auth] in await auth.accessToken() }
         )
-        // TraxKit owns the whole experience (tabs, map, places, settings). The lab
-        // is just the auth shell — it injects the sign-out action, which the SPM
-        // surfaces in the Me tab.
-        return TraxRootView(config: config, store: TraxStore(inMemory: true)) {
-            auth.logOut()
-        }
+        _engine = State(initialValue: TraxEngine(config: config, host: TraxLabLocationEngine()))
+    }
+
+    var body: some View {
+        TraxRootView(engine: engine) { auth.logOut() }
+            .task { engine.start() }
+            .onDisappear { engine.stop() }
     }
 }
 
