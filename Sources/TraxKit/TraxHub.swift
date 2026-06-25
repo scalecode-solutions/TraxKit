@@ -265,7 +265,16 @@ public struct TraxHub: View {
         }
         .frame(height: h, alignment: .top)
         .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: .rect(topLeadingRadius: 22, topTrailingRadius: 22))
+        .background {
+            // Rounded top, but the material bleeds into the bottom safe area so it
+            // fills behind a host tab bar + the home indicator (no map showing
+            // through). Reads the inset implicitly — works for the bare home
+            // indicator (TraxLab standalone) and Clingy's tab bar alike.
+            UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 0,
+                                   bottomTrailingRadius: 0, topTrailingRadius: 22)
+                .fill(.regularMaterial)
+                .ignoresSafeArea(.container, edges: .bottom)
+        }
         .shadow(color: .black.opacity(0.12), radius: 10, y: -4)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: detent)
     }
