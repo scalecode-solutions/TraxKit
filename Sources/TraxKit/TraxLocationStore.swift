@@ -86,10 +86,12 @@ public final class TraxLocationStore {
         await sync.transitions(ownerID: sync.currentUserID, since: since, limit: limit)
     }
 
-    /// A `partner`'s durable enter/leave history, read back from mvTrax (gated to
-    /// what I'm allowed to see). Backfills the chat thread so past arrivals show
-    /// regardless of restarts or whether I was watching the live feed when they fired.
-    public func transitions(with partner: UUID, since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
-        await sync.transitions(ownerID: partner, since: since, limit: limit)
+    /// Fold a `partner`'s durable enter/leave history (gated to what I'm allowed to
+    /// see) into the live `recentTransitions` buffer — so a chat thread's backfill of
+    /// past arrivals rides the SAME @Observable path as live events, rather than a
+    /// separate source the host has to merge in the view (which won't reliably
+    /// surface in a UICollectionView landing async after the initial build).
+    public func backfill(with partner: UUID, limit: Int? = nil) async {
+        await sync.backfillTransitions(ownerID: partner, limit: limit)
     }
 }

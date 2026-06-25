@@ -221,6 +221,15 @@ public final class TraxSync {
         }
     }
 
+    /// Fetch an owner's durable enter/leave history and fold it into the live
+    /// `recentTransitions` buffer — so a chat thread's backfill of past arrivals
+    /// rides the SAME @Observable path as the live feed, instead of a second source
+    /// the host has to merge separately (which won't reliably refresh the UI).
+    public func backfillTransitions(ownerID: UUID, limit: Int? = nil) async {
+        let trs = await transitions(ownerID: ownerID, since: nil, limit: limit)
+        if !trs.isEmpty { mergeTransitions(trs) }
+    }
+
     // MARK: - helpers
 
     /// Merge new transitions (newest first, dedup by id, cap 50).
