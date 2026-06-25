@@ -105,3 +105,25 @@ public final class SyncCursorEntity {
     public var syncTs: Int64
     public init(key: String = "feed", syncTs: Int64) { self.key = key; self.syncTs = syncTs }
 }
+
+/// A place enter/leave event, now a FIRST-CLASS store entity (was a transient
+/// in-memory buffer + an on-demand read-back). Persisting it gives durable backfill
+/// that survives relaunch, and — because the store is per-user — it dies with the
+/// session on logout instead of leaking across accounts.
+@Model
+public final class TransitionEntity {
+    @Attribute(.unique) public var id: UUID
+    public var ownerId: UUID
+    public var placeId: UUID
+    public var placeName: String
+    public var placeEmoji: String?
+    public var event: String      // enter | leave
+    public var createdAt: Int64
+
+    public init(id: UUID, ownerId: UUID, placeId: UUID, placeName: String,
+                placeEmoji: String?, event: String, createdAt: Int64) {
+        self.id = id; self.ownerId = ownerId; self.placeId = placeId
+        self.placeName = placeName; self.placeEmoji = placeEmoji
+        self.event = event; self.createdAt = createdAt
+    }
+}
