@@ -89,8 +89,23 @@ public final class TraxLocationStore {
         Array(sync.recentTransitions.filter { $0.ownerId == partner }.prefix(limit))
     }
 
-    /// My OWN enter/leave events read back from mvTrax (durable) — the chat bridge
-    /// projects these into my side of the thread / backfills on a fresh device.
+    /// My OWN recent enter/leave events — the "You arrived at X" side of a thread.
+    /// Reads the DURABLE SwiftData store (written the moment I cross in
+    /// `recordOwnTransition`), so it survives an app restart; the live buffer that
+    /// `recentTransitions(with:)` reads is only the reactivity trigger that makes the
+    /// row appear instantly. `sync.recentTransitions` is touched so the read re-runs
+    /// when a fresh crossing lands.
+    public func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] {
+        _ = sync.recentTransitions   // observe the buffer → re-read the store on a new crossing
+        return store.transitions(ownerID: sync.currentUserID, limit: limit).map {
+            TransitionDTO(id: $0.id, ownerId: $0.ownerId, placeId: $0.placeId,
+                          placeName: $0.placeName, placeEmoji: $0.placeEmoji,
+                          event: $0.event, createdAt: $0.createdAt)
+        }
+    }
+
+    /// My OWN enter/leave events read back from mvTrax (durable) — backfills my side
+    /// of the thread on a fresh device (where the live buffer is empty).
     public func myTransitions(since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
         await sync.transitions(ownerID: sync.currentUserID, since: since, limit: limit)
     }

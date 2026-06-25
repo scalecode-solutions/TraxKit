@@ -192,14 +192,30 @@ public final class TraxSync {
     }
 
     /// Geofence-monitor hook: publish a device-detected enter/leave. Fire-and-log
-    /// — the server owns debounce + fan-out.
+    /// — the server owns debounce + fan-out. Also records MY OWN crossing locally so
+    /// my side of the thread shows "You arrived at X" immediately (the feed never
+    /// delivers my own transitions back to me).
     public func postTransition(placeID: UUID, event: String, lat: Double? = nil, lng: Double? = nil) async {
+        recordOwnTransition(placeID: placeID, event: event)
         do {
             try await transport.postTransition(TransitionBody(placeId: placeID, event: event, lat: lat, lng: lng))
         } catch is CancellationError {
         } catch {
             lastError = describe(error)
         }
+    }
+
+    /// Fold my own crossing into the live (observable) buffer + the durable store,
+    /// resolving the place from my local set — so the owner sees their own arrival
+    /// without waiting on (or ever receiving) a feed echo.
+    private func recordOwnTransition(placeID: UUID, event: String) {
+        guard let place = store.allPlaces().first(where: { $0.id == placeID }) else { return }
+        let dto = TransitionDTO(
+            id: UUID(), ownerId: currentUserID, placeId: placeID,
+            placeName: place.name, placeEmoji: place.emoji, event: event,
+            createdAt: Int64(Date().timeIntervalSince1970 * 1000))
+        store.upsertTransition(dto); store.save()
+        mergeTransitions([dto])
     }
 
     // MARK: - Timeline (any owner, per-day)
