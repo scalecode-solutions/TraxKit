@@ -73,6 +73,14 @@ public final class TraxEngine {
         host.setMonitoredRegions([])
     }
 
+    /// Sign-out wipe: clear all persisted Trax data (shares, contacts, places,
+    /// transitions, cursor) through the live store context — the SwiftData-
+    /// sanctioned way (see `TraxStore.wipeAll`). Call BEFORE `stop()`, while the
+    /// container is still open; leaves an empty, valid store for the next session.
+    public func wipeStore() {
+        store.wipeAll()
+    }
+
     // MARK: - Poll + seam push
 
     private func poll() async {

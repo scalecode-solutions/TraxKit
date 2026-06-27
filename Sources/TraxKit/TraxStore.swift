@@ -191,4 +191,22 @@ public final class TraxStore {
         guard context.hasChanges else { return }
         try? context.save()
     }
+
+    // MARK: - Wipe (sign-out)
+
+    /// Delete every persisted entity through the live context — the SwiftData-
+    /// sanctioned wipe (mirrors the host app's `TrackerDataCleanup.clearAll`). This
+    /// is deliberately a row-delete, NOT a file delete: unlinking the `.store` while
+    /// the container is open is a SQLite integrity violation ("vnode unlinked while
+    /// in use"). Leaves an empty, valid store for the next session. Enumerated by
+    /// type because SwiftData has no "delete every model" API — keep this list in
+    /// sync with `TraxSchemaV1.models`.
+    public func wipeAll() {
+        try? context.delete(model: ShareEntity.self)
+        try? context.delete(model: ContactEntity.self)
+        try? context.delete(model: PlaceEntity.self)
+        try? context.delete(model: TransitionEntity.self)
+        try? context.delete(model: SyncCursorEntity.self)
+        save()
+    }
 }
