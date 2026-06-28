@@ -62,7 +62,7 @@ public final class TraxSync {
         } catch is CancellationError {
             // Benign — the next refresh covers it.
         } catch {
-            report(error)
+            lastError = describe(error)
         }
     }
 
@@ -73,7 +73,7 @@ public final class TraxSync {
             lastError = nil
         } catch is CancellationError {
         } catch {
-            report(error)
+            lastError = describe(error)
         }
     }
 
@@ -92,7 +92,7 @@ public final class TraxSync {
             lastError = nil
         } catch is CancellationError {
         } catch {
-            report(error)
+            lastError = describe(error)
         }
     }
 
@@ -157,7 +157,7 @@ public final class TraxSync {
             lastError = nil
         } catch is CancellationError {
         } catch {
-            report(error)
+            lastError = describe(error)
         }
     }
 
@@ -201,7 +201,7 @@ public final class TraxSync {
             try await transport.postTransition(TransitionBody(placeId: placeID, event: event, lat: lat, lng: lng))
         } catch is CancellationError {
         } catch {
-            report(error)
+            lastError = describe(error)
         }
     }
 
@@ -238,7 +238,7 @@ public final class TraxSync {
         } catch is CancellationError {
             return TimelineDay()
         } catch {
-            report(error)
+            lastError = describe(error)
             return TimelineDay()
         }
     }
@@ -254,7 +254,7 @@ public final class TraxSync {
         } catch is CancellationError {
             return []
         } catch {
-            report(error)
+            lastError = describe(error)
             return []
         }
     }
@@ -278,24 +278,6 @@ public final class TraxSync {
             merged.append(t); seen.insert(t.id)
         }
         recentTransitions = Array(merged.sorted { $0.createdAt > $1.createdAt }.prefix(50))
-    }
-
-    /// Route a caught error to `lastError`, but swallow transient auth blips.
-    /// A momentarily-missing/expired token (the host refreshes on its own rail)
-    /// would otherwise flash a raw `CodeUnauthenticated` RPC dump in the UI's red
-    /// banner every time a sync lands in the refresh gap; the next cycle clears it
-    /// anyway. Treat it as benign — like `CancellationError` — and don't alarm.
-    private func report(_ error: Error) {
-        if isTransientAuth(error) { return }
-        report(error)
-    }
-
-    /// Both the missing-token guard and the server's `.unauthenticated` rejection
-    /// collapse onto `TraxTransportError.notAuthenticated` in the transport, so a
-    /// single check covers both flavors.
-    private func isTransientAuth(_ error: Error) -> Bool {
-        if case TraxTransportError.notAuthenticated = error { return true }
-        return false
     }
 
     private func describe(_ error: Error) -> String {
