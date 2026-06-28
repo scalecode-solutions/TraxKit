@@ -19,14 +19,23 @@ public struct ConnectTraxTransport: TraxTransport {
 
     // MARK: - plumbing
 
-    private func authHeaders() async -> Headers {
-        guard let tok = await tokenProvider() else { return [:] }
+    private func authHeaders() async throws -> Headers {
+        // No token (expired with no refresh available) → fail fast with the
+        // dedicated sentinel instead of sending an anonymous request that the
+        // server would only reject as CodeUnauthenticated. TraxSync treats this
+        // as transient and doesn't surface it as an error banner.
+        guard let tok = await tokenProvider() else { throw TraxTransportError.notAuthenticated }
         return ["Authorization": ["Bearer \(tok)"]]
     }
 
     private func value<T>(_ r: ResponseMessage<T>) throws -> T {
         if let m = r.message { return m }
         if let e = r.error {
+            // A token that reached the server but failed validation (expired /
+            // bad signature) comes back as `.unauthenticated`. Collapse it onto
+            // the same transient sentinel as the missing-token case so the host
+            // can swallow it uniformly rather than flashing a raw RPC dump.
+            if e.code == .unauthenticated { throw TraxTransportError.notAuthenticated }
             throw TraxError(error: .init(code: "\(e.code)", reason: nil,
                                          message: e.message ?? "rpc failed"), httpStatus: nil)
         }
@@ -39,7 +48,7 @@ public struct ConnectTraxTransport: TraxTransport {
         var req = Trax_V1_FeedRequest()
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.feed(request: req, headers: await authHeaders()))
+        let r = try value(await client.feed(request: req, headers: try await authHeaders()))
         return FeedDTO(shares: r.shares.map(shareDTO),
                        transitions: r.transitions.map(transitionDTO),
                        syncTs: r.syncTs, hasMore: r.hasMore_p,
@@ -61,7 +70,7 @@ public struct ConnectTraxTransport: TraxTransport {
         if let v = body.batteryCharging { req.batteryCharging = v }
         if let v = body.clientTs { req.clientTs = v }
         if let v = body.recordedAt { req.recordedAt = v }
-        let r = try value(await client.track(request: req, headers: await authHeaders()))
+        let r = try value(await client.track(request: req, headers: try await authHeaders()))
         return TrackAckDTO(ok: r.ok, shares: Int(r.shares), ts: r.ts)
     }
 
@@ -74,21 +83,21 @@ public struct ConnectTraxTransport: TraxTransport {
         if let v = body.retention { req.retention = v }
         if let v = body.precision { req.precision = v }
         if let v = body.expiresIn { req.expiresIn = Int32(v) }
-        return shareDTO(try value(await client.startShare(request: req, headers: await authHeaders())))
+        return shareDTO(try value(await client.startShare(request: req, headers: try await authHeaders())))
     }
 
     public func stopShare(id: UUID) async throws {
         var req = Trax_V1_StopShareRequest(); req.id = id.uuidString
-        _ = try value(await client.stopShare(request: req, headers: await authHeaders()))
+        _ = try value(await client.stopShare(request: req, headers: try await authHeaders()))
     }
 
     public func stopAllShares() async throws -> CountDTO {
-        let r = try value(await client.stopAllShares(request: .init(), headers: await authHeaders()))
+        let r = try value(await client.stopAllShares(request: .init(), headers: try await authHeaders()))
         return CountDTO(count: r.count)
     }
 
     public func shares() async throws -> SharesDTO {
-        let r = try value(await client.listShares(request: .init(), headers: await authHeaders()))
+        let r = try value(await client.listShares(request: .init(), headers: try await authHeaders()))
         return SharesDTO(outgoing: r.outgoing.map(shareDTO), incoming: r.incoming.map(shareDTO))
     }
 
@@ -100,32 +109,32 @@ public struct ConnectTraxTransport: TraxTransport {
         if let since { req.since = since }
         if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listPoints(request: req, headers: await authHeaders()))
+        let r = try value(await client.listPoints(request: req, headers: try await authHeaders()))
         return PointsDTO(ownerId: uid(r.ownerID), points: r.points.map(pointDTO))
     }
 
     public func clearHistory(before: Int64?) async throws -> CountDTO {
         var req = Trax_V1_ClearHistoryRequest()
         if let before { req.before = before }
-        let r = try value(await client.clearHistory(request: req, headers: await authHeaders()))
+        let r = try value(await client.clearHistory(request: req, headers: try await authHeaders()))
         return CountDTO(count: r.count)
     }
 
     // MARK: - Directory
 
     public func contacts() async throws -> [TraxContact] {
-        let r = try value(await client.listContacts(request: .init(), headers: await authHeaders()))
+        let r = try value(await client.listContacts(request: .init(), headers: try await authHeaders()))
         return r.contacts.map(contact)
     }
 
     public func me() async throws -> TraxContact {
-        contact(try value(await client.getMe(request: .init(), headers: await authHeaders())))
+        contact(try value(await client.getMe(request: .init(), headers: try await authHeaders())))
     }
 
     // MARK: - Places
 
     public func places() async throws -> [PlaceDTO] {
-        let r = try value(await client.listPlaces(request: .init(), headers: await authHeaders()))
+        let r = try value(await client.listPlaces(request: .init(), headers: try await authHeaders()))
         return r.places.map(placeDTO)
     }
 
@@ -135,7 +144,7 @@ public struct ConnectTraxTransport: TraxTransport {
         req.radiusM = Int32(body.radiusM)
         if let v = body.emoji { req.emoji = v }
         if let v = body.address { req.address = v }
-        return placeDTO(try value(await client.createPlace(request: req, headers: await authHeaders())))
+        return placeDTO(try value(await client.createPlace(request: req, headers: try await authHeaders())))
     }
 
     public func updatePlace(id: UUID, _ body: PlaceBody) async throws -> PlaceDTO {
@@ -145,22 +154,22 @@ public struct ConnectTraxTransport: TraxTransport {
         req.radiusM = Int32(body.radiusM)
         if let v = body.emoji { req.emoji = v }
         if let v = body.address { req.address = v }
-        return placeDTO(try value(await client.updatePlace(request: req, headers: await authHeaders())))
+        return placeDTO(try value(await client.updatePlace(request: req, headers: try await authHeaders())))
     }
 
     public func deletePlace(id: UUID) async throws {
         var req = Trax_V1_DeletePlaceRequest(); req.id = id.uuidString
-        _ = try value(await client.deletePlace(request: req, headers: await authHeaders()))
+        _ = try value(await client.deletePlace(request: req, headers: try await authHeaders()))
     }
 
     public func sharePlace(id: UUID, viewer: UUID) async throws {
         var req = Trax_V1_SharePlaceRequest(); req.id = id.uuidString; req.viewer = viewer.uuidString
-        _ = try value(await client.sharePlace(request: req, headers: await authHeaders()))
+        _ = try value(await client.sharePlace(request: req, headers: try await authHeaders()))
     }
 
     public func unsharePlace(id: UUID, viewer: UUID) async throws {
         var req = Trax_V1_UnsharePlaceRequest(); req.id = id.uuidString; req.viewer = viewer.uuidString
-        _ = try value(await client.unsharePlace(request: req, headers: await authHeaders()))
+        _ = try value(await client.unsharePlace(request: req, headers: try await authHeaders()))
     }
 
     public func postTransition(_ body: TransitionBody) async throws {
@@ -168,7 +177,7 @@ public struct ConnectTraxTransport: TraxTransport {
         req.placeID = body.placeId.uuidString; req.event = body.event
         if let v = body.lat { req.lat = v }
         if let v = body.lng { req.lng = v }
-        _ = try value(await client.postTransition(request: req, headers: await authHeaders()))
+        _ = try value(await client.postTransition(request: req, headers: try await authHeaders()))
     }
 
     // MARK: - Timeline
@@ -177,7 +186,7 @@ public struct ConnectTraxTransport: TraxTransport {
         var req = Trax_V1_ListTripsRequest()
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listTrips(request: req, headers: await authHeaders()))
+        let r = try value(await client.listTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
@@ -185,7 +194,7 @@ public struct ConnectTraxTransport: TraxTransport {
         var req = Trax_V1_ListVisitsRequest()
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listVisits(request: req, headers: await authHeaders()))
+        let r = try value(await client.listVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)
     }
 
@@ -194,7 +203,7 @@ public struct ConnectTraxTransport: TraxTransport {
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listOwnerTrips(request: req, headers: await authHeaders()))
+        let r = try value(await client.listOwnerTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
@@ -203,7 +212,7 @@ public struct ConnectTraxTransport: TraxTransport {
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listOwnerVisits(request: req, headers: await authHeaders()))
+        let r = try value(await client.listOwnerVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)
     }
 
@@ -212,7 +221,7 @@ public struct ConnectTraxTransport: TraxTransport {
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
         if let limit { req.limit = Int32(limit) }
-        let r = try value(await client.listOwnerTransitions(request: req, headers: await authHeaders()))
+        let r = try value(await client.listOwnerTransitions(request: req, headers: try await authHeaders()))
         return r.transitions.map(transitionDTO)
     }
 }
