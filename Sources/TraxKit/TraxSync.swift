@@ -25,6 +25,30 @@ public final class TraxSync {
     private let store: TraxStore
     private var isRefreshing = false
 
+    /// Consecutive-failure streaks for the POLL-driven reads (feed / outgoing /
+    /// contacts / places), keyed per read so one bad tick of a single call
+    /// can't paint the banner. A lone failure is self-healing (the host's
+    /// token provider refreshes in place; the next 20s tick covers a blip),
+    /// so the banner only shows once the SAME read has failed twice in a row —
+    /// but persistent failure MUST still surface: the swallow-everything
+    /// approach was tried and reverted (2436be0) because it hid real breakage.
+    /// User-initiated paths (mutations, timeline, transitions) stay immediate.
+    private var pollFailureStreaks: [String: Int] = [:]
+
+    /// One failed poll read: bump its streak; paint only from the 2nd
+    /// consecutive failure of that read.
+    private func reportPollFailure(_ key: String, _ error: Error) {
+        let streak = (pollFailureStreaks[key] ?? 0) + 1
+        pollFailureStreaks[key] = streak
+        if streak >= 2 { lastError = describe(error) }
+    }
+
+    /// One good poll read: reset its streak and clear the banner.
+    private func pollSucceeded(_ key: String) {
+        pollFailureStreaks[key] = 0
+        lastError = nil
+    }
+
     /// The SwiftData container backing this sync's store. Exposed so pushed screens
     /// can attach it to their `@Query` environment.
     public var container: ModelContainer { store.container }
@@ -58,11 +82,11 @@ public final class TraxSync {
                 guard page.hasMore, page.syncTs > since else { break }
                 since = page.syncTs
             }
-            lastError = nil
+            pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
         } catch {
-            lastError = describe(error)
+            reportPollFailure("feed", error)
         }
     }
 
@@ -70,10 +94,10 @@ public final class TraxSync {
     public func refreshOutgoing() async {
         do {
             outgoing = try await transport.shares().outgoing
-            lastError = nil
+            pollSucceeded("outgoing")
         } catch is CancellationError {
         } catch {
-            lastError = describe(error)
+            reportPollFailure("outgoing", error)
         }
     }
 
@@ -89,10 +113,10 @@ public final class TraxSync {
             let contacts = try await transport.contacts()
             store.upsertContacts(contacts)
             if let me = try? await transport.me() { store.upsertContact(me) }
-            lastError = nil
+            pollSucceeded("contacts")
         } catch is CancellationError {
         } catch {
-            lastError = describe(error)
+            reportPollFailure("contacts", error)
         }
     }
 
@@ -154,10 +178,10 @@ public final class TraxSync {
         do {
             let places = try await transport.places()
             store.replacePlaces(places)
-            lastError = nil
+            pollSucceeded("places")
         } catch is CancellationError {
         } catch {
-            lastError = describe(error)
+            reportPollFailure("places", error)
         }
     }
 
@@ -281,7 +305,17 @@ public final class TraxSync {
     }
 
     private func describe(_ error: Error) -> String {
-        if let te = error as? TraxError { return te.description }
+        // Auth failures get a human string — these only reach the banner after
+        // the debounce, i.e. when the condition is persistent, so the text
+        // describes a state, not a blip. mvTrax now distinguishes expiry
+        // ("token expired") from everything else at the wire.
+        if case TraxTransportError.notAuthenticated = error { return "Not signed in" }
+        if let te = error as? TraxError {
+            if te.code == "unauthenticated" {
+                return te.message == "token expired" ? "Session expired" : "Authentication failed"
+            }
+            return te.description
+        }
         return String(describing: error)
     }
 }
