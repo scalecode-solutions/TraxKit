@@ -18,11 +18,13 @@ struct ContentView: View {
 
 private enum LabTab: Hashable { case chats, trax, pulse, me }
 
-/// The dev host: builds a `TraxEngine` with the lab's device location-host
-/// (`TraxLabLocationEngine` — the seam impl), drives `start()`/`stop()`, and wraps
-/// the embedded hub in a **Clingy-shaped tab bar** so the sheet-behind-the-tab-bar
-/// case is real here (3 stub tabs + the live Trax map). The engine runs app-wide,
-/// across tab switches — exactly how Clingy hoists it.
+/// The dev host: builds a `TraxEngine` with the kit's own device location engine
+/// (`TraxLocationEngine`, default no-op policy — TraxLab has no privacy-lock),
+/// drives `start()`/`stop()`, and wraps the embedded hub in a **Clingy-shaped tab
+/// bar** so the sheet-behind-the-tab-bar case is real here (3 stub tabs + the live
+/// Trax map). The engine runs app-wide, across tab switches — exactly how Clingy
+/// hoists it. Running the production engine here makes TraxLab a true end-to-end
+/// test bed for the real hardware path.
 struct TraxLabHost: View {
     let auth: AuthModel
     @State private var engine: TraxEngine
@@ -35,7 +37,7 @@ struct TraxLabHost: View {
             currentUserID: UUID(uuidString: profile.userID) ?? UUID(),
             tokenProvider: { [auth] in await auth.accessToken() }
         )
-        _engine = State(initialValue: TraxEngine(config: config, host: TraxLabLocationEngine()))
+        _engine = State(initialValue: TraxEngine(config: config, host: TraxLocationEngine()))
     }
 
     var body: some View {
