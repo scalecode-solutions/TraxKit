@@ -1,0 +1,152 @@
+import SwiftUI
+import CoreLocation
+
+// The relationship-shaped embedding API. A Trax share IS a conversation — a dyad
+// between two users — so the host (e.g. per 1:1 conversation) asks "what's
+// the state of my location relationship with this person?" and gets both
+// directions plus recent events. Backed by the already-synced local store + the
+// feed; reads are cheap (no per-call network), mirroring PulseKit's per-user
+// status store. The host holds one instance and injects it.
+
+/// My outgoing share to a partner (I'm letting them see me).
+public struct TraxShareInfo: Sendable, Hashable {
+    public let shareID: UUID
+    public let precision: String   // exact | place | approx
+    public let mode: String        // live | breadcrumb
+    public let expiresAt: Int64?   // epoch ms; nil = until I stop
+}
+
+/// A partner's current location AS PRESENTED TO ME (precision already applied by
+/// the server) — the incoming side of the relationship.
+public struct TraxLocationSummary: Sendable {
+    public let coordinate: CLLocationCoordinate2D?  // nil = no presented fix (place-away / no fix)
+    public let placeName: String?
+    public let atPlace: Bool
+    public let precision: String
+    public let battery: Int?
+    public let batteryCharging: Bool
+    public let lastUpdatedMs: Int64?
+    public let isLive: Bool
+}
+
+/// The full location facet of a 1:1 relationship.
+public struct TraxRelationship: Sendable {
+    public let partnerID: UUID
+    public let outgoing: TraxShareInfo?       // I share with them
+    public let incoming: TraxLocationSummary? // they share with me
+    public var iShare: Bool { outgoing != nil }
+    public var theyShare: Bool { incoming != nil }
+    public var isMutual: Bool { outgoing != nil && incoming != nil }
+}
+
+/// A custom place I'm currently sharing with a specific partner — the value the
+/// host's per-conversation location surface lists (and, since 0.5.1, pins on
+/// its dyad map — hence the coordinate/radius). A Sendable snapshot so the
+/// host never touches the underlying @Model.
+public struct TraxSharedPlace: Identifiable, Sendable, Hashable {
+    public let id: UUID
+    public let name: String
+    public let emoji: String?
+    public let latitude: Double
+    public let longitude: Double
+    public let radiusM: Int
+}
+
+@MainActor
+@Observable
+public final class TraxLocationStore {
+    private let sync: TraxSync
+    private let store: TraxStore
+
+    public init(sync: TraxSync, store: TraxStore) {
+        self.sync = sync
+        self.store = store
+    }
+
+    /// My outgoing share to `partner`, if any (observed via `sync.outgoing`).
+    public func outgoingShare(to partner: UUID) -> TraxShareInfo? {
+        sync.outgoing.first { $0.viewerId == partner }.map {
+            TraxShareInfo(shareID: $0.id, precision: $0.precision, mode: $0.mode, expiresAt: $0.expiresAt)
+        }
+    }
+
+    /// `partner`'s current presented location, if they're sharing with me.
+    public func summary(for partner: UUID) -> TraxLocationSummary? {
+        guard let s = store.incomingShare(ownerID: partner) else { return nil }
+        let st = s.status()
+        let coord = (s.lat != nil && s.lng != nil)
+            ? CLLocationCoordinate2D(latitude: s.lat!, longitude: s.lng!) : nil
+        return TraxLocationSummary(
+            coordinate: coord, placeName: s.placeName, atPlace: s.atPlace, precision: s.precision,
+            battery: s.batteryLevel, batteryCharging: s.batteryCharging ?? false,
+            lastUpdatedMs: s.locRecordedAt, isLive: st.isLive)
+    }
+
+    /// Both directions of the relationship in one call (what a conversation header reads).
+    public func relationship(with partner: UUID) -> TraxRelationship {
+        TraxRelationship(partnerID: partner, outgoing: outgoingShare(to: partner), incoming: summary(for: partner))
+    }
+
+    /// `partner`'s recent enter/leave events visible to me (from the live feed) —
+    /// the events the chat bridge projects into the thread for that partner.
+    public func recentTransitions(with partner: UUID, limit: Int = 20) -> [TransitionDTO] {
+        Array(sync.recentTransitions.filter { $0.ownerId == partner }.prefix(limit))
+    }
+
+    /// My OWN recent enter/leave events — the "You arrived at X" side of a thread.
+    /// Reads the DURABLE SwiftData store (written the moment I cross in
+    /// `recordOwnTransition`), so it survives an app restart; the live buffer that
+    /// `recentTransitions(with:)` reads is only the reactivity trigger that makes the
+    /// row appear instantly. `sync.recentTransitions` is touched so the read re-runs
+    /// when a fresh crossing lands.
+    public func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] {
+        _ = sync.recentTransitions   // observe the buffer → re-read the store on a new crossing
+        return store.transitions(ownerID: sync.currentUserID, limit: limit).map {
+            TransitionDTO(id: $0.id, ownerId: $0.ownerId, placeId: $0.placeId,
+                          placeName: $0.placeName, placeEmoji: $0.placeEmoji,
+                          event: $0.event, createdAt: $0.createdAt)
+        }
+    }
+
+    /// My OWN enter/leave events read back from mvTrax (durable) — backfills my side
+    /// of the thread on a fresh device (where the live buffer is empty).
+    public func myTransitions(since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
+        await sync.transitions(ownerID: sync.currentUserID, since: since, limit: limit)
+    }
+
+    /// Fold a `partner`'s durable enter/leave history (gated to what I'm allowed to
+    /// see) into the live `recentTransitions` buffer — so a chat thread's backfill of
+    /// past arrivals rides the SAME @Observable path as live events, rather than a
+    /// separate source the host has to merge in the view (which won't reliably
+    /// surface in a UICollectionView landing async after the initial build).
+    public func backfill(with partner: UUID, limit: Int? = nil) async {
+        await sync.backfillTransitions(ownerID: partner, limit: limit)
+    }
+
+    /// My custom places currently shared with `partner` (owned by me, visible to
+    /// them) — what the conversation's "Places shared with X" page lists.
+    public func sharedPlaces(with partner: UUID) -> [TraxSharedPlace] {
+        store.allPlaces()
+            .filter { $0.ownerId == sync.currentUserID && $0.sharedWith.contains(partner) }
+            .map { TraxSharedPlace(id: $0.id, name: $0.name, emoji: $0.emoji,
+                                   latitude: $0.lat, longitude: $0.lng, radiusM: $0.radiusM) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Every place visible to me — my own (home/work/custom) plus co-owned
+    /// "our spot" places shared TO me. The host's places-management surface
+    /// (e.g. a host's chat settings) lists these; @Model refs
+    /// are safe to hand out here because the bridge and the host share the
+    /// MainActor. Reads live SwiftData — call after `sync.loadPlaces()` for
+    /// server-fresh contents.
+    public func allPlaces() -> [PlaceEntity] {
+        store.allPlaces()
+    }
+
+    /// Stop sharing `placeID` with `partner` (revoke the share), then refresh the
+    /// local place store so the page reflects it.
+    public func stopSharing(_ placeID: UUID, with partner: UUID) async {
+        try? await sync.unsharePlace(id: placeID, viewer: partner)
+        await sync.loadPlaces()
+    }
+}
