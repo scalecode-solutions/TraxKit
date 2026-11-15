@@ -16,12 +16,20 @@ public final class TraxStore {
     public let container: ModelContainer
     private var context: ModelContext { container.mainContext }
 
-    /// Per-user, optionally App-Group-scoped store. `appGroup` is the host's group
-    /// identifier (e.g. "group.com.example.app"); nil uses the app's own container.
-    public init(userID: UUID, appGroup: String? = nil) {
+    /// Per-user store. `directory`, when given, is the folder it lives in (the
+    /// host's choice, e.g. one kept out of device backups). Otherwise `appGroup`
+    /// is the host's group identifier (e.g. "group.com.example.app"), and nil
+    /// uses the app's own container.
+    public init(userID: UUID, appGroup: String? = nil, directory: URL? = nil) {
         let schema = Schema(versionedSchema: TraxSchemaV1.self)
-        let group: ModelConfiguration.GroupContainer = appGroup.map { .identifier($0) } ?? .none
-        let config = ModelConfiguration("Trax-\(userID.uuidString)", schema: schema, groupContainer: group)
+        let name = "Trax-\(userID.uuidString)"
+        let config: ModelConfiguration
+        if let directory {
+            config = ModelConfiguration(name, schema: schema, url: directory.appending(path: "\(name).store"))
+        } else {
+            let group: ModelConfiguration.GroupContainer = appGroup.map { .identifier($0) } ?? .none
+            config = ModelConfiguration(name, schema: schema, groupContainer: group)
+        }
         self.container = Self.open(schema: schema, configuration: config)
     }
 
@@ -34,7 +42,8 @@ public final class TraxStore {
     }
 
     private static func open(schema: Schema, configuration config: ModelConfiguration) -> ModelContainer {
-        // First launch: the store's parent dir (Application Support) may not exist yet,
+        // First launch: the store's parent dir (Application Support, or the host's
+        // folder) may not exist yet,
         // which makes the initial open fail-then-recover noisily. Pre-create it.
         try? FileManager.default.createDirectory(at: config.url.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)

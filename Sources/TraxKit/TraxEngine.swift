@@ -26,7 +26,8 @@ public final class TraxEngine {
     private var transitionTask: Task<Void, Never>?
 
     public init(config: TraxConfig, host: any TraxLocationHost) {
-        let store = TraxStore(userID: config.currentUserID, appGroup: config.appGroup)
+        let store = TraxStore(userID: config.currentUserID, appGroup: config.appGroup,
+                              directory: config.storeDirectory)
         self.store = store
         self.host = host
         self.sync = TraxSync(config: config, store: store)
