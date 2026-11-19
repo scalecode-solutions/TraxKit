@@ -4,23 +4,27 @@ import Foundation
 // state, every input explicit, so each is pinned by a truth table
 // (PolicyTests). Unknown or missing inputs resolve to the quietest choice.
 
-/// How hard the device should track, from what the user is doing.
+/// How hard the device should track, from the precision of my live shares.
+///
+/// The share's precision is the user's choice of how much to reveal, so it is
+/// also the choice of how hard to track (MVTRAX-18 step 10, decided 2026-11-19):
+/// - exact: full rate, in the foreground and the background, however long the
+///   share lasts. Choosing exact is the opt-in.
+/// - place: coarse while the app is open; significant-change in the background
+///   (the place fences report arrivals on their own).
+/// - approx: ~1 km while open; significant-change in the background.
+/// The most precise live share sets the tier. No share or no permission → off.
 enum TrackingDemandPolicy {
-    /// - sharing: I have at least one live share (see ShareLivenessPolicy).
-    /// - backgroundOptIn: continuous tracking in the background. Off until the
-    ///   product decides it (MVTRAX-18 step 10); while off, sharing in the
-    ///   background runs on significant-change only, which under When-In-Use
-    ///   delivers nothing in the background. That is the intended quiet
-    ///   default, not a bug.
-    static func demand(sharing: Bool, auth: TraxLocationAuth, foreground: Bool,
-                       backgroundOptIn: Bool = false) -> TraxTrackingDemand {
-        guard sharing else { return .off }
+    static func demand(precisions: Set<TraxPrecision>, auth: TraxLocationAuth,
+                       foreground: Bool) -> TraxTrackingDemand {
         switch auth {
         case .always, .whenInUse: break
         case .notDetermined, .denied: return .off
         }
-        if foreground { return .continuous }
-        return backgroundOptIn ? .continuous : .significant
+        if precisions.contains(.exact) { return .continuous }
+        if precisions.contains(.place) { return foreground ? .coarse : .significant }
+        if precisions.contains(.approx) { return foreground ? .approximate : .significant }
+        return .off
     }
 }
 

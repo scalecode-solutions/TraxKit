@@ -53,7 +53,7 @@ import Testing
         engine.start()
         #expect(await eventually { host.lastDemand == .continuous })
         engine.setForeground(false)   // no ticks from here on
-        #expect(host.lastDemand == .significant)
+        #expect(host.lastDemand == .continuous, "exact keeps full rate in the background")
         await t.setTrackAck(TrackAckDTO(ok: true, shares: 0, ts: 0))
         host.send(TraxFix(lat: 30, lng: -90, horizontalAccuracy: 5, timestamp: Date()))
         #expect(await eventually { host.lastDemand == .off })
@@ -72,6 +72,22 @@ import Testing
         #expect(await eventually { host.lastDemand == .continuous })
         engine.setForeground(false)
         #expect(await eventually(within: 400) { host.lastDemand == .off })
+        engine.stop()
+    }
+
+    /// The share's precision sets the tier, and the app state moves it.
+    @Test func precisionSetsTheTier() async {
+        let t = FakeTraxTransport()
+        await t.setOutgoing([Fixtures.share(owner: me, viewer: friend, precision: "place")])
+        let host = FakeTraxLocationHost()
+        let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
+        let engine = TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true))
+        engine.start()
+        #expect(await eventually { host.lastDemand == .coarse })
+        engine.setForeground(false)
+        #expect(host.lastDemand == .significant)
+        engine.setForeground(true)
+        #expect(host.lastDemand == .coarse)
         engine.stop()
     }
 

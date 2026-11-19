@@ -1,28 +1,56 @@
 import Foundation
+import CoreLocation
 import Testing
 @testable import TraxKit
 
 /// Truth tables for the lifetime policies (pure functions).
 @Suite struct PolicyTests {
     @Test func trackingDemandTable() {
-        typealias Row = (sharing: Bool, auth: TraxLocationAuth, fg: Bool, optIn: Bool, want: TraxTrackingDemand)
+        typealias Row = (p: Set<TraxPrecision>, auth: TraxLocationAuth, fg: Bool, want: TraxTrackingDemand)
         let rows: [Row] = [
-            (false, .always, true, false, .off),            // not sharing: off
-            (false, .always, false, true, .off),
-            (true, .denied, true, false, .off),             // no permission: off
-            (true, .notDetermined, true, false, .off),
-            (true, .whenInUse, true, false, .continuous),   // sharing, foreground
-            (true, .always, true, false, .continuous),
-            (true, .always, false, false, .significant),    // background, no opt-in: quiet
-            // When-In-Use + background → significant, which iOS delivers nothing
-            // for in the background: the intended quiet default until step 10.
-            (true, .whenInUse, false, false, .significant),
-            (true, .always, false, true, .continuous),      // background with opt-in
+            ([], .always, true, .off),                        // not sharing: off
+            ([], .whenInUse, false, .off),
+            ([.exact], .denied, true, .off),                  // no permission: off
+            ([.exact], .notDetermined, true, .off),
+            // exact: full rate, foreground and background, either permission
+            ([.exact], .whenInUse, true, .continuous),
+            ([.exact], .whenInUse, false, .continuous),
+            ([.exact], .always, true, .continuous),
+            ([.exact], .always, false, .continuous),
+            // place: coarse while open, significant-change in the background
+            ([.place], .always, true, .coarse),
+            ([.place], .always, false, .significant),
+            ([.place], .whenInUse, false, .significant),
+            // approx: ~1 km while open, significant-change in the background
+            ([.approx], .whenInUse, true, .approximate),
+            ([.approx], .always, false, .significant),
+            // the most precise live share sets the tier
+            ([.approx, .place], .always, true, .coarse),
+            ([.approx, .exact], .always, false, .continuous),
+            ([.place, .exact, .approx], .whenInUse, true, .continuous),
+            ([.place, .approx], .always, false, .significant),
         ]
         for r in rows {
-            #expect(TrackingDemandPolicy.demand(sharing: r.sharing, auth: r.auth, foreground: r.fg,
-                                                backgroundOptIn: r.optIn) == r.want, "\(r)")
+            #expect(TrackingDemandPolicy.demand(precisions: r.p, auth: r.auth, foreground: r.fg) == r.want, "\(r)")
         }
+    }
+
+    /// What CoreLocation is asked for per tier: only exact keeps updating in the
+    /// background, and only when the host declares the location background mode.
+    @Test func updateProfileTable() {
+        typealias E = TraxLocationEngine
+        #expect(E.profile(for: .off, stationary: false, hasBackgroundMode: true) == nil)
+        #expect(E.profile(for: .significant, stationary: false, hasBackgroundMode: true) == nil)
+        let approx = E.profile(for: .approximate, stationary: false, hasBackgroundMode: true)
+        #expect(approx?.accuracy == kCLLocationAccuracyKilometer && approx?.background == false)
+        let coarse = E.profile(for: .coarse, stationary: false, hasBackgroundMode: true)
+        #expect(coarse?.accuracy == kCLLocationAccuracyHundredMeters && coarse?.background == false)
+        let moving = E.profile(for: .continuous, stationary: false, hasBackgroundMode: true)
+        #expect(moving?.accuracy == kCLLocationAccuracyBest && moving?.background == true)
+        let still = E.profile(for: .continuous, stationary: true, hasBackgroundMode: true)
+        #expect(still?.accuracy == kCLLocationAccuracyHundredMeters && still?.background == true)
+        let noMode = E.profile(for: .continuous, stationary: false, hasBackgroundMode: false)
+        #expect(noMode?.background == false, "without the location background mode, never ask (it would crash)")
     }
 
     @Test func shareLivenessTable() {

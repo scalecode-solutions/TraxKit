@@ -47,7 +47,7 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
     static let rerankAfterMeters: CLLocationDistance = 1_000
     /// While continuously tracking: GPS ignores moves under this (the upload
     /// policy decides what's posted; this saves the radio work).
-    static let continuousDistanceFilter: CLLocationDistance = 10
+    nonisolated static let continuousDistanceFilter: CLLocationDistance = 10
     private let log = Logger(subsystem: "TraxKit", category: "location")
 
     /// - Parameter policy: host hooks for wrapping permission prompts. Defaults to
@@ -192,6 +192,7 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
             // rolling-20 geofence budget ranked when there are more places than
             // regions (Always only; significant-change is the cheapest signal).
             manager.stopUpdatingLocation()
+            manager.allowsBackgroundLocationUpdates = false
             if s == .authorizedAlways && regions.count > 20 {
                 manager.startMonitoringSignificantLocationChanges()
             } else {
@@ -200,23 +201,55 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
             stopMotion()
         case .significant:
             manager.stopUpdatingLocation()
+            manager.allowsBackgroundLocationUpdates = false
             manager.startMonitoringSignificantLocationChanges()
             startMotionIfNeeded()
-        case .continuous:
+        case .approximate, .coarse, .continuous:
             manager.stopMonitoringSignificantLocationChanges()
-            manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways)
             applyAccuracy()
             manager.startUpdatingLocation()
             startMotionIfNeeded()   // motion follows location: only once authorized + tracking
         }
     }
 
-    /// Full GPS accuracy while moving; a coarse fix while the motion says the
-    /// device is still (a phone on a desk doesn't need the radio at full power).
+    /// What CoreLocation is asked for in each updating tier.
+    nonisolated struct UpdateProfile: Equatable, Sendable {
+        let accuracy: CLLocationAccuracy
+        let distanceFilter: CLLocationDistance
+        let background: Bool
+    }
+
+    /// Pure: the settings for a tier. Only exact (`.continuous`) keeps updating
+    /// in the background, and only when the host declares the `location`
+    /// background mode (setting allowsBackgroundLocationUpdates without it
+    /// crashes). Exact runs at full GPS while moving and coarse while the
+    /// motion says the device is still.
+    nonisolated static func profile(for demand: TraxTrackingDemand, stationary: Bool,
+                        hasBackgroundMode: Bool) -> UpdateProfile? {
+        switch demand {
+        case .off, .significant:
+            return nil
+        case .approximate:
+            return UpdateProfile(accuracy: kCLLocationAccuracyKilometer, distanceFilter: 500, background: false)
+        case .coarse:
+            return UpdateProfile(accuracy: kCLLocationAccuracyHundredMeters, distanceFilter: 50, background: false)
+        case .continuous:
+            return UpdateProfile(accuracy: stationary ? kCLLocationAccuracyHundredMeters : kCLLocationAccuracyBest,
+                                 distanceFilter: continuousDistanceFilter, background: hasBackgroundMode)
+        }
+    }
+
+    nonisolated static let hostHasBackgroundMode: Bool =
+        (Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String])?.contains("location") ?? false
+
+    /// Apply the current tier's profile (re-run when the motion changes, so a
+    /// phone on a desk doesn't hold the radio at full power).
     private func applyAccuracy() {
-        guard demand == .continuous else { return }
-        let wanted = motion == "stationary" ? kCLLocationAccuracyHundredMeters : kCLLocationAccuracyBest
-        if manager.desiredAccuracy != wanted { manager.desiredAccuracy = wanted }
+        guard let p = Self.profile(for: demand, stationary: motion == "stationary",
+                                   hasBackgroundMode: Self.hostHasBackgroundMode) else { return }
+        if manager.desiredAccuracy != p.accuracy { manager.desiredAccuracy = p.accuracy }
+        if manager.distanceFilter != p.distanceFilter { manager.distanceFilter = p.distanceFilter }
+        if manager.allowsBackgroundLocationUpdates != p.background { manager.allowsBackgroundLocationUpdates = p.background }
     }
 
     /// Rolling-20 nearest to the current fix (the single-owner region budget).

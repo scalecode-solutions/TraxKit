@@ -67,9 +67,11 @@ public struct TraxTransition: Sendable, Hashable {
 /// How aggressively the kit needs the host to track — driven by share state, NOT by
 /// leaking who's watching. The host decides how to satisfy it (accuracy/tier/battery).
 public enum TraxTrackingDemand: Sendable, Hashable {
-    case off            // not sharing — the host can idle / significant-change only
-    case significant    // sharing but nobody actively watching — cheap tier
-    case continuous     // active live watcher — tight tier
+    case off            // not sharing: no GPS
+    case significant    // background, place or approx share: significant-change only
+    case approximate    // approx share, app open: ~1 km updates
+    case coarse         // place share, app open: ~100 m updates
+    case continuous     // exact share: full rate, foreground and background
 }
 
 /// Location authorization, as the kit reads it. The host owns the prompt.
