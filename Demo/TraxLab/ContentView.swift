@@ -20,10 +20,22 @@ struct ContentView: View {
     @ViewBuilder private var signedIn: some View {
         switch auth.state {
         case .loggedIn(let profile):
-            TraxLabHost(userID: profile.userID, server: auth.server,
-                        tokenProvider: { [auth] in await auth.accessToken() },
-                        signOut: { auth.logOut() })
-                .id(profile.userID) // a fresh engine (and per-user store) per identity
+            if let id = UUID(uuidString: profile.userID) {
+                TraxLabHost(userID: id, server: auth.server,
+                            tokenProvider: { [auth] in await auth.accessToken() },
+                            signOut: { auth.logOut() })
+                    .id(id) // a fresh engine (and per-user store) per identity
+            } else {
+                // Never run as a made-up identity: a random id would get its own
+                // empty store and post under nobody.
+                ContentUnavailableView {
+                    Label("Can't start", systemImage: "person.crop.circle.badge.exclamationmark")
+                } description: {
+                    Text("This account's id isn't a UUID, so mvTrax can't identify it.")
+                } actions: {
+                    Button("Sign out") { auth.logOut() }
+                }
+            }
         default:
             LoginView(auth: auth)
         }
@@ -36,11 +48,11 @@ struct ContentView: View {
 /// local stack; compiled out of release builds.
 struct DevSignIn {
     let token: String
-    let user: String
+    let user: UUID
 
     static func fromEnvironment() -> DevSignIn? {
         let e = ProcessInfo.processInfo.environment
-        guard let t = e["TRAX_DEV_TOKEN"], let u = e["TRAX_DEV_USER"], UUID(uuidString: u) != nil else { return nil }
+        guard let t = e["TRAX_DEV_TOKEN"], let u = e["TRAX_DEV_USER"].flatMap(UUID.init(uuidString:)) else { return nil }
         return DevSignIn(token: t, user: u)
     }
 }
@@ -70,21 +82,21 @@ enum LabTab: Hashable { case chats, trax, pulse, me }
 /// that reads the kit's bridge. `LabSession` runs the engine app-wide from
 /// sign-in; sign-out wipes it, as a production host does.
 struct TraxLabHost: View {
-    let userID: String
+    let userID: UUID
     let server: LabServer
     let signOut: () -> Void
     @State private var session: LabSession
     @State private var tab: LabTab = LabLaunch.startTab
     @Environment(\.scenePhase) private var phase
 
-    init(userID: String, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?,
+    init(userID: UUID, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?,
          signOut: @escaping () -> Void) {
         self.userID = userID
         self.server = server
         self.signOut = signOut
         let config = TraxConfig(
             baseURL: server.traxBaseURL,
-            currentUserID: UUID(uuidString: userID) ?? UUID(),
+            currentUserID: userID,
             tokenProvider: tokenProvider
         )
         _session = State(initialValue: LabSession(engine: TraxEngine(config: config, host: TraxLocationEngine())))
