@@ -46,6 +46,35 @@ import Testing
         #expect(host.lastRegions == [])
     }
 
+    /// Sharing ended by the server's word (an ack saying no shares remain):
+    /// demand drops without waiting for a poll tick.
+    @Test func ackEndingSharingDropsDemand() async {
+        let (t, host, engine) = await rig(sharing: true)
+        engine.start()
+        #expect(await eventually { host.lastDemand == .continuous })
+        engine.setForeground(false)   // no ticks from here on
+        #expect(host.lastDemand == .significant)
+        await t.setTrackAck(TrackAckDTO(ok: true, shares: 0, ts: 0))
+        host.send(TraxFix(lat: 30, lng: -90, horizontalAccuracy: 5, timestamp: Date()))
+        #expect(await eventually { host.lastDemand == .off })
+        engine.stop()
+    }
+
+    /// A share reaching its expiresAt drops demand on its own, with no tick or ack.
+    @Test func expiryDropsDemand() async {
+        let t = FakeTraxTransport()
+        await t.setOutgoing([Fixtures.share(owner: me, viewer: friend,
+                                            expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + 600)])
+        let host = FakeTraxLocationHost()
+        let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
+        let engine = TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true))
+        engine.start()
+        #expect(await eventually { host.lastDemand == .continuous })
+        engine.setForeground(false)
+        #expect(await eventually { host.lastDemand == .off })
+        engine.stop()
+    }
+
     @Test func placesBecomeRegionsAndCrossingsArePosted() async {
         let (t, host, engine) = await rig()
         let place = Fixtures.place(owner: me, name: "Spot", lat: 30, lng: -90)
@@ -80,18 +109,19 @@ import Testing
         engine.stop()
     }
 
-    /// Held (and in the foreground): the fast cadence. Otherwise the slow one.
+    /// Held (and in the foreground): the fast cadence; unheld in the foreground:
+    /// the slow one; in the background: no poll (FeedCadencePolicy).
     @Test func holdsSetTheCadence() async {
         let (_, _, engine) = await rig()
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == FeedCadencePolicy.foregroundUnheld)
         engine.acquire(); engine.acquire()
-        #expect(engine.pollInterval() == .seconds(5))
+        #expect(engine.pollInterval() == FeedCadencePolicy.held)
         engine.release()
-        #expect(engine.pollInterval() == .seconds(5))   // one screen still holds it
+        #expect(engine.pollInterval() == FeedCadencePolicy.held)   // one screen still holds it
         engine.setForeground(false)
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == nil)
         engine.setForeground(true); engine.release()
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == FeedCadencePolicy.foregroundUnheld)
         engine.release()                                 // an extra release can't go negative
         #expect(engine.holders == 0)
     }
