@@ -26,8 +26,8 @@ struct TraxHubPlacesContent: View {
                 HStack(spacing: 14) {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
-                        .frame(width: 44, height: 44).background(Color.accentColor, in: .circle)
-                    Text("Add a Place").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.accentColor)
+                        .frame(width: 44, height: 44).background(.tint, in: .circle)
+                    Text("Add a Place").font(.system(size: 17, weight: .semibold)).foregroundStyle(.tint)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10).contentShape(Rectangle())
@@ -40,12 +40,12 @@ struct TraxHubPlacesContent: View {
                 Button { onEdit(p) } label: {
                     HStack(spacing: 14) {
                         Text(p.emoji ?? defaultEmoji(p.type)).font(.title2)
-                            .frame(width: 44, height: 44).background(Color.accentColor.opacity(0.12), in: .circle)
+                            .frame(width: 44, height: 44).background(.tint.opacity(0.12), in: .circle)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 5) {
                                 Text(p.name).font(.system(size: 17, weight: .semibold))
                                 if isOurSpot(p) {
-                                    Image(systemName: "person.2.fill").font(.system(size: 11)).foregroundStyle(Color.accentColor)
+                                    Image(systemName: "person.2.fill").font(.system(size: 11)).foregroundStyle(.tint)
                                 }
                             }
                             Text(subtitle(p)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -212,7 +212,7 @@ struct PlaceEditor: View {
             .overlay {
                 Image(systemName: "mappin.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
                     .background(Circle().fill(.white).padding(6))
                     .shadow(radius: 3)
                     .allowsHitTesting(false)
@@ -287,7 +287,7 @@ struct PlaceEditor: View {
 
     private var addressRow: some View {
         HStack(spacing: 12) {
-            Image(systemName: "mappin.and.ellipse").foregroundStyle(Color.accentColor)
+            Image(systemName: "mappin.and.ellipse").foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(pinnedAddress ?? "Drag the map to set the spot")
                     .font(.subheadline)

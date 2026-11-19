@@ -105,7 +105,7 @@ struct TraxHubDetailContent: View {
             }
             .foregroundStyle(disabled ? Color.secondary : Color.primary)
             .frame(maxWidth: .infinity).padding(.vertical, 12)
-            .background(Color.accentColor.opacity(disabled ? 0.04 : 0.12), in: .rect(cornerRadius: 12))
+            .background(.tint.opacity(disabled ? 0.04 : 0.12), in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain).disabled(disabled)
     }
@@ -153,7 +153,7 @@ struct TraxHubDetailContent: View {
                 Image(systemName: "chevron.forward").font(.footnote).foregroundStyle(.tertiary)
             }
             .padding(14)
-            .background(Color.accentColor.opacity(0.06), in: .rect(cornerRadius: 14))
+            .background(.tint.opacity(0.06), in: .rect(cornerRadius: 14))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -178,7 +178,7 @@ struct TraxHubDetailContent: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(10).background(Color.accentColor.opacity(0.05), in: .rect(cornerRadius: 12))
+                        .padding(10).background(.tint.opacity(0.05), in: .rect(cornerRadius: 12))
                     }
                 }
                 .padding(.horizontal, 16)

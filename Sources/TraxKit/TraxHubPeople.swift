@@ -126,7 +126,7 @@ struct TraxPersonRow: View {
                 // Self reads as a distinct tinted card; sharers stay flat.
                 if person.isSelf {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.12))
+                        .fill(.tint.opacity(0.12))
                         .padding(.horizontal, 8)
                 }
             }
@@ -189,7 +189,7 @@ struct AvatarPin: View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 TraxAvatar(id: id, name: name, avatarBase64: avatar, size: selected ? 48 : 40)
-                    .overlay(Circle().stroke(selected ? Color.accentColor : .white, lineWidth: 3))
+                    .overlay(Circle().stroke(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.white), lineWidth: 3))
                     .background(Circle().fill(.white).padding(-1))
                     .shadow(radius: 3, y: 1)
                     .overlay(alignment: .bottomTrailing) { presenceDot }
@@ -204,7 +204,7 @@ struct AvatarPin: View {
             }
             Image(systemName: "triangle.fill")
                 .font(.system(size: 9)).rotationEffect(.degrees(180))
-                .foregroundStyle(selected ? Color.accentColor : .white).offset(y: -2)
+                .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.white)).offset(y: -2)
         }
         .animation(.spring(duration: 0.25), value: selected)
     }

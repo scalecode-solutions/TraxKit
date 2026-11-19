@@ -69,10 +69,10 @@ struct TraxPersonMap: View {
             ForEach(places) { place in
                 let center = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
                 Marker(place.name, monogram: Text(place.emoji ?? "📍"), coordinate: center)
-                    .tint(Color.accentColor.opacity(0.75))
+                    .tint(.tint.opacity(0.75))
                 MapCircle(center: center, radius: CLLocationDistance(place.radiusM))
-                    .foregroundStyle(Color.accentColor.opacity(0.08))
-                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                    .foregroundStyle(.tint.opacity(0.08))
+                    .stroke(.tint.opacity(0.3), lineWidth: 1)
             }
         }
         .mapStyle(.standard(elevation: .realistic))
@@ -86,7 +86,7 @@ struct TraxPersonMap: View {
             .shadow(radius: 3)
             .overlay {
                 if summary?.isLive == true {   // live: fresh fixes are arriving
-                    Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 2)
+                    Circle().strokeBorder(.tint.opacity(0.35), lineWidth: 2)
                         .frame(width: markerSize + 12, height: markerSize + 12)
                 }
             }

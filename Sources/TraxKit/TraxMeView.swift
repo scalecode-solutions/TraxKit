@@ -157,8 +157,8 @@ struct TraxMeView: View {
             Text(p.label).font(.system(size: 12, weight: .medium))
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(Color.accentColor.opacity(0.12), in: .capsule)
-        .foregroundStyle(Color.accentColor)
+        .background(.tint.opacity(0.12), in: .capsule)
+        .foregroundStyle(.tint)
     }
 
     private func precisionIcon(_ p: SharePrecision) -> String {
@@ -266,7 +266,7 @@ struct TraxMeView: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(10).background(Color.accentColor.opacity(0.05), in: .rect(cornerRadius: 12))
+                        .padding(10).background(.tint.opacity(0.05), in: .rect(cornerRadius: 12))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -369,7 +369,7 @@ struct SelfSharePreview: View {
         }
         return HStack(spacing: 8) {
             Image(systemName: p == .exact ? "scope" : (p == .place ? "mappin.circle" : "circle.dashed"))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             Text(line).font(.subheadline)
             Spacer(minLength: 0)
         }
@@ -380,15 +380,15 @@ struct SelfSharePreview: View {
             if let c = presented.coord {
                 if let fuzz = presented.fuzz {
                     MapCircle(center: c, radius: fuzz)
-                        .foregroundStyle(Color.accentColor.opacity(0.15))
-                        .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
+                        .foregroundStyle(.tint.opacity(0.15))
+                        .stroke(.tint.opacity(0.5), lineWidth: 1)
                 }
                 if precision == "exact" {
                     Annotation("You", coordinate: c) { AvatarPin(id: meId, name: meName, avatar: meAvatar) }
                 } else if let place = presented.place {
-                    Marker(place, monogram: Text("📍"), coordinate: c).tint(Color.accentColor)
+                    Marker(place, monogram: Text("📍"), coordinate: c).tint(.tint)
                 } else {
-                    Marker("~ Around here", coordinate: c).tint(Color.accentColor)
+                    Marker("~ Around here", coordinate: c).tint(.tint)
                 }
             }
         }

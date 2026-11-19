@@ -23,7 +23,7 @@ public struct TraxShareBadge: View {
         if let d = TraxShareDirection(engine.relationship(with: otherID)) {
             Image(systemName: d.symbol)
                 .font(.system(size: size, weight: .semibold))
-                .foregroundStyle(bright ? d.brightTint : d.tint)
+                .foregroundStyle(bright ? AnyShapeStyle(d.brightTint) : d.tint)
                 .shadow(color: bright ? .black.opacity(0.3) : .clear, radius: 1, y: 0.5)
                 .accessibilityLabel(d.accessibilityLabel)
                 .accessibilityIdentifier("trax.shareBadge")
@@ -52,10 +52,11 @@ enum TraxShareDirection: Equatable {
         }
     }
 
-    var tint: Color {
+    /// Mine going out wears the host's tint; theirs coming in is green.
+    var tint: AnyShapeStyle {
         switch self {
-        case .iShare, .both: .accentColor
-        case .theyShare:     .green
+        case .iShare, .both: AnyShapeStyle(.tint)
+        case .theyShare:     AnyShapeStyle(.green)
         }
     }
 

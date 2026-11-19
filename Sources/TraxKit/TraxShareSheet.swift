@@ -103,7 +103,7 @@ struct TraxShareSheet: View {
                                 Spacer()
                                 if busy == c.id { ProgressView() }
                                 else if sharingViewerIDs.contains(c.id) {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint)
                                 }
                             }
                         }
