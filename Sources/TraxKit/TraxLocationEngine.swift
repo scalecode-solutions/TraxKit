@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import CoreMotion
 import UIKit
+import os
 
 /// The kit's default `TraxLocationHost` — the device location engine (single
 /// `CLLocationManager` + rolling-20 geofence + motion/battery). Ships in TraxKit so
@@ -36,6 +37,18 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
     private var latestFix: TraxFix?
     private var fixContinuation: AsyncStream<TraxFix>.Continuation?
     private var transitionContinuation: AsyncStream<TraxTransition>.Continuation?
+    /// Crossings detected while nobody is listening (a cold launch by a geofence
+    /// wakes the app before the kit subscribes): handed to the next subscriber
+    /// instead of dropped. Newest kept, capped.
+    private var pendingTransitions: [TraxTransition] = []
+    static let pendingTransitionCap = 50
+    /// Where the rolling-20 was last ranked from; re-ranked after moving `rerankAfterMeters`.
+    private var rankedFrom: CLLocation?
+    static let rerankAfterMeters: CLLocationDistance = 1_000
+    /// While continuously tracking: GPS ignores moves under this (the upload
+    /// policy decides what's posted; this saves the radio work).
+    static let continuousDistanceFilter: CLLocationDistance = 10
+    private let log = Logger(subsystem: "TraxKit", category: "location")
 
     /// - Parameter policy: host hooks for wrapping permission prompts. Defaults to
     ///   no-ops — correct for any host without a privacy-lock (e.g. TraxLab).
@@ -44,6 +57,7 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = Self.continuousDistanceFilter
         manager.pausesLocationUpdatesAutomatically = false
     }
 
@@ -68,7 +82,9 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
         UIDevice.current.isBatteryMonitoringEnabled = false
         fixContinuation?.finish();        fixContinuation = nil
         transitionContinuation?.finish(); transitionContinuation = nil
+        pendingTransitions = []   // a signed-out session's crossings never reach the next one
         regions = [:]
+        rankedFrom = nil
         latestFix = nil
         endDialogIfHeld()   // logout mid-prompt: don't leave the guard wedged
     }
@@ -86,11 +102,42 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
     public var currentFix: TraxFix? { latestFix }
 
     public func fixStream() -> AsyncStream<TraxFix> {
-        AsyncStream { continuation in self.fixContinuation = continuation }
+        let (stream, continuation) = AsyncStream.makeStream(of: TraxFix.self, bufferingPolicy: .bufferingNewest(1))
+        fixContinuation = continuation
+        return stream
     }
 
+    /// Crossings from now on, starting with any detected while nobody listened.
+    /// When this subscriber goes away, crossings are buffered again.
     public func transitionStream() -> AsyncStream<TraxTransition> {
-        AsyncStream { continuation in self.transitionContinuation = continuation }
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: TraxTransition.self, bufferingPolicy: .bufferingNewest(Self.pendingTransitionCap))
+        for t in pendingTransitions { continuation.yield(t) }
+        pendingTransitions = []
+        let token = UUID()
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in
+                // Only forget it if it's still the current subscriber.
+                guard let self, self.transitionToken == token else { return }
+                self.transitionContinuation = nil
+            }
+        }
+        transitionToken = token
+        transitionContinuation = continuation
+        return stream
+    }
+    private var transitionToken = UUID()
+
+    func deliver(_ t: TraxTransition) {
+        if let c = transitionContinuation {
+            if case .terminated = c.yield(t) {} else { return }
+        }
+        // No listener (or one that just went away): keep it for the next.
+        transitionContinuation = nil
+        pendingTransitions.append(t)
+        if pendingTransitions.count > Self.pendingTransitionCap {
+            pendingTransitions.removeFirst(pendingTransitions.count - Self.pendingTransitionCap)
+        }
     }
 
     public var authorization: TraxLocationAuth {
@@ -140,21 +187,47 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
         let s = manager.authorizationStatus
         guard s == .authorizedAlways || s == .authorizedWhenInUse else { return }
         switch demand {
-        case .off, .significant:
+        case .off:
+            // Off is off: no GPS, no motion. The one exception is keeping a
+            // rolling-20 geofence budget ranked when there are more places than
+            // regions (Always only; significant-change is the cheapest signal).
             manager.stopUpdatingLocation()
-            manager.startMonitoringSignificantLocationChanges()   // still feed the self-dot
+            if s == .authorizedAlways && regions.count > 20 {
+                manager.startMonitoringSignificantLocationChanges()
+            } else {
+                manager.stopMonitoringSignificantLocationChanges()
+            }
+            stopMotion()
+        case .significant:
+            manager.stopUpdatingLocation()
+            manager.startMonitoringSignificantLocationChanges()
+            startMotionIfNeeded()
         case .continuous:
             manager.stopMonitoringSignificantLocationChanges()
             manager.allowsBackgroundLocationUpdates = (s == .authorizedAlways)
+            applyAccuracy()
             manager.startUpdatingLocation()
+            startMotionIfNeeded()   // motion follows location: only once authorized + tracking
         }
-        startMotionIfNeeded()   // motion follows location: only once authorized + tracking
+    }
+
+    /// Full GPS accuracy while moving; a coarse fix while the motion says the
+    /// device is still (a phone on a desk doesn't need the radio at full power).
+    private func applyAccuracy() {
+        guard demand == .continuous else { return }
+        let wanted = motion == "stationary" ? kCLLocationAccuracyHundredMeters : kCLLocationAccuracyBest
+        if manager.desiredAccuracy != wanted { manager.desiredAccuracy = wanted }
     }
 
     /// Rolling-20 nearest to the current fix (the single-owner region budget).
+    /// Region monitoring needs Always: under When-In-Use iOS doesn't deliver
+    /// crossings in the background, so nothing is armed rather than half-armed.
     private func reconcileRegions() {
-        let s = manager.authorizationStatus
-        guard s == .authorizedAlways || s == .authorizedWhenInUse else { return }
+        guard manager.authorizationStatus == .authorizedAlways else {
+            manager.monitoredRegions.forEach { manager.stopMonitoring(for: $0) }
+            return
+        }
+        if let fix = latestFix { rankedFrom = CLLocation(latitude: fix.lat, longitude: fix.lng) }
         let wanted = nearest20(Array(regions.values), to: latestFix)
         let wantedIDs = Set(wanted.map { $0.placeID.uuidString })
         for r in manager.monitoredRegions where !wantedIDs.contains(r.identifier) {
@@ -198,6 +271,7 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
             }
             guard let activity else { return }
             self.motion = Self.classify(activity)
+            self.applyAccuracy()
         }
     }
 
@@ -244,6 +318,23 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
             let fix = self.makeFix(loc)
             self.latestFix = fix
             self.fixContinuation?.yield(fix)
+            self.rerankIfMoved(loc)
+        }
+    }
+
+    /// More places than regions: re-rank the rolling-20 once the device has
+    /// moved far enough that the nearest twenty may have changed.
+    private func rerankIfMoved(_ loc: CLLocation) {
+        guard regions.count > 20 else { return }
+        if let from = rankedFrom, loc.distance(from: from) < Self.rerankAfterMeters { return }
+        reconcileRegions()
+    }
+
+    nonisolated public func locationManager(_ m: CLLocationManager, monitoringDidFailFor region: CLRegion?,
+                                            withError error: any Error) {
+        let id = region?.identifier ?? "?"
+        Task { @MainActor in
+            self.log.error("region monitoring failed for \(id, privacy: .private): \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -266,8 +357,9 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
 
     nonisolated private func emit(_ regionID: String, _ event: TraxEvent) {
         guard let id = UUID(uuidString: regionID) else { return }
+        let at = Date()
         Task { @MainActor in
-            self.transitionContinuation?.yield(TraxTransition(placeID: id, event: event, timestamp: Date()))
+            self.deliver(TraxTransition(placeID: id, event: event, timestamp: at))
         }
     }
 }
