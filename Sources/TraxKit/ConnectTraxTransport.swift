@@ -283,7 +283,7 @@ private func pointDTO(_ p: Trax_V1_Point) -> PointDTO {
 private func placeDTO(_ p: Trax_V1_Place) -> PlaceDTO {
     PlaceDTO(id: uid(p.id), ownerId: uid(p.ownerID), name: p.name, type: p.type,
              lat: p.lat, lng: p.lng, radiusM: Int(p.radiusM),
-             emoji: p.hasEmoji ? p.emoji : nil, address: p.hasAddress ? p.address : nil,
+             emoji: p.hasEmoji ? p.emoji : nil, address: p.hasAddress && !p.address.isEmpty ? p.address : nil,   // "" = cleared
              sharedWith: p.sharedWith.isEmpty ? nil : p.sharedWith.map(uid),
              createdAt: p.createdAt, updatedAt: p.updatedAt)
 }
