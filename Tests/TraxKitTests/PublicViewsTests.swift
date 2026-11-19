@@ -70,6 +70,13 @@ import Testing
         #expect(DurationChoice.keepCurrent.duration(current: s, now: now) == .seconds(60))
     }
 
+    /// The share ended while "Keep current end" was chosen: the default
+    /// length goes out, not an until-I-stop share nobody chose.
+    @Test func keepingTheEndOfAShareThatEndedSendsTheDefault() {
+        #expect(DurationChoice.keepCurrent.duration(current: nil, now: now) == .seconds(15 * 60))
+        #expect(DurationChoice.keepCurrent.duration(current: share(expiresIn: nil), now: now) == .seconds(15 * 60))
+    }
+
     @Test func presetsSendTheirLength() {
         #expect(DurationChoice.preset(.oneHour).duration(current: nil, now: now) == .seconds(3600))
         #expect(DurationChoice.preset(.indefinite).duration(current: nil, now: now) == nil)

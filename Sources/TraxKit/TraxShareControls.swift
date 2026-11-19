@@ -9,7 +9,7 @@ struct TraxShareControls: View {
     let personName: String
     let appearance: TraxAppearance
 
-    @State private var duration: DurationChoice = .preset(.fifteenMinutes)
+    @State private var duration: DurationChoice = .fallback
     @State private var precision: SharePrecision = .exact
     @State private var busy = false
     @State private var error: String?
@@ -31,6 +31,13 @@ struct TraxShareControls: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
                     .accessibilityIdentifier("share.error")
             }
+        }
+        // The share ended or was stopped elsewhere while changing it: back to
+        // a fresh chooser, not a half-kept change.
+        .onChange(of: outgoing == nil) { _, gone in
+            guard gone else { return }
+            changing = false
+            duration = .fallback
         }
     }
 
@@ -180,6 +187,9 @@ enum DurationChoice: Hashable {
     case preset(ShareDuration)
     case keepCurrent
 
+    /// The chooser's starting choice for a new share.
+    static let fallback = DurationChoice.preset(.fifteenMinutes)
+
     var label: String {
         switch self {
         case .preset(let d): d.label
@@ -206,7 +216,9 @@ enum DurationChoice: Hashable {
         case .preset(let d):
             return d.expiresInSeconds.map { .seconds($0) }
         case .keepCurrent:
-            guard let end = current?.expiresAt else { return nil }
+            // No timed share to keep (it ended or was stopped meanwhile): the
+            // default length, never an until-I-stop nobody chose.
+            guard let end = current?.expiresAt else { return Self.fallback.duration(current: nil, now: now) }
             return .seconds(max(60, Int(end.timeIntervalSince(now).rounded(.up))))
         }
     }
