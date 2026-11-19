@@ -12,7 +12,7 @@ struct TraxHubDetailContent: View {
     let weather: TraxWeatherStore
     let geocoder: TraxGeocoder
     let selfCoordinate: CLLocationCoordinate2D?
-    let myPlaces: [PlaceEntity]
+    let myPlaces: [PlaceSnapshot]
     let onShare: () -> Void
     let onWeather: () -> Void
     let onHistory: () -> Void

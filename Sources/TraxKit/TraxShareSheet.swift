@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// Live-share length when starting a share (mirrors the earlier in-app options; default
 /// 15 min, with "Until I stop" = indefinite). See mvTrax/docs/DESIGN.md.
@@ -45,7 +44,7 @@ struct TraxShareSheet: View {
     let engine: TraxEngine
     private var sync: TraxSync { engine.sync }
 
-    @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
+    private var contacts: [TraxContact] { engine.sync.contacts }
     @Environment(\.dismiss) private var dismiss
 
     @State private var duration: ShareDuration = .fifteenMinutes

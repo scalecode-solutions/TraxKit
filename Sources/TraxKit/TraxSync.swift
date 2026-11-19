@@ -27,8 +27,12 @@ public final class TraxSync {
     /// Each sharer's current presented location, published as values (the
     /// bridge reads these; nothing fetches inside a view body).
     private(set) var incoming: [UUID: IncomingShareSnapshot] = [:]
+    /// The same shares as a list, newest first (what the hub lists and pins).
+    private(set) var incomingList: [IncomingShareSnapshot] = []
     /// Places visible to me, published as values.
     private(set) var placeSnapshots: [PlaceSnapshot] = []
+    /// The people directory (friends and me), by name, as values.
+    private(set) var contacts: [TraxContact] = []
     private var publishedChanges = -1
 
     /// Bumped by `invalidate()` (stop) and `wipe()`: work that started before
@@ -115,9 +119,14 @@ public final class TraxSync {
             revision += 1
         }
         let inc = store.incomingSnapshots()
-        if inc != incoming { incoming = inc }
+        if inc != incoming {
+            incoming = inc
+            incomingList = inc.values.sorted { ($0.updatedAt, $0.shareID.uuidString) > ($1.updatedAt, $1.shareID.uuidString) }
+        }
         let places = store.placeSnapshots()
         if places != placeSnapshots { placeSnapshots = places }
+        let people = store.contactSnapshots()
+        if people != contacts { contacts = people }
     }
 
     public convenience init(config: TraxConfig, store: TraxStore) {
