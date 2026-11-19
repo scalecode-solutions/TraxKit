@@ -71,6 +71,7 @@ struct TraxLabHost: View {
     let signOut: () -> Void
     @State private var session: LabSession
     @State private var tab: LabTab = LabLaunch.startTab
+    @Environment(\.scenePhase) private var phase
 
     init(userID: String, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?,
          signOut: @escaping () -> Void) {
@@ -110,6 +111,7 @@ struct TraxLabHost: View {
         .tint(.tardisBlue)
         .onAppear { session.start() }
         .onDisappear { session.stop() }
+        .onChange(of: phase, initial: true) { _, p in session.setForeground(p != .background) }
     }
 
     /// Sign-out wipes this account's local store (production hosts do the same).

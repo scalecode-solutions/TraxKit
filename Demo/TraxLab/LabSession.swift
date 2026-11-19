@@ -6,18 +6,16 @@ import TraxKit
 ///
 /// Unlike a calendar, location sharing is app-wide: the engine starts at
 /// sign-in and keeps running in the background (sharing and geofences must not
-/// stop because no map is on screen). What screens add is a hold: a map on
-/// screen acquires the session and refreshes immediately, so it opens fresh
-/// instead of waiting for the next poll. Holds are counted, so the hub and a
-/// person's screen can't fight.
+/// stop because no map is on screen). What screens add is a hold: a screen
+/// showing others' locations acquires the engine, which refreshes at once and
+/// polls at its fast cadence while held. The engine counts holds, so the hub
+/// and a person's screen can't fight.
 @MainActor
 @Observable
 final class LabSession {
     let engine: TraxEngine
     /// True from `start()` until `stop()` or sign-out.
     private(set) var isRunning = false
-    /// How many map surfaces hold the session right now.
-    private(set) var holders = 0
 
     private var wiped = false
 
@@ -41,17 +39,15 @@ final class LabSession {
         engine.stop()
     }
 
-    /// A map surface appeared: refresh now rather than on the next poll tick.
-    func acquire() {
-        holders += 1
-        guard isRunning else { return }
-        Task { [engine] in await engine.sync.refresh() }
-    }
+    /// A screen showing others' locations appeared.
+    func acquire() { engine.acquire() }
 
-    /// A map surface went away.
-    func release() {
-        holders = max(0, holders - 1)
-    }
+    /// That screen went away.
+    func release() { engine.release() }
+
+    /// The scene went to the background (false) or came back (true). Driven
+    /// from the app's scene phase, not from a screen.
+    func setForeground(_ on: Bool) { engine.setForeground(on) }
 
     /// Sign-out: delete this person's local store, then stop. The wipe goes
     /// first, while the container is still open (`TraxEngine.wipeStore`).

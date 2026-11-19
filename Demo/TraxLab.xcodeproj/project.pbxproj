@@ -254,7 +254,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity tunes how often TraxLab updates your location, saving battery, and shows whether you're walking or driving.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity shows whether you're walking or driving, and lets TraxLab ease off location updates while you're still, saving battery.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -407,7 +407,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity tunes how often TraxLab updates your location, saving battery, and shows whether you're walking or driving.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity shows whether you're walking or driving, and lets TraxLab ease off location updates while you're still, saving battery.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
