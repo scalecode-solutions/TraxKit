@@ -90,6 +90,21 @@ import Testing
         #expect(await t.count("track") == 1)
     }
 
+    /// PRIVACY: a fix left pending after a failed post is never sent once I've
+    /// stopped sharing.
+    @Test func pendingFixIsDroppedWhenSharingStops() async {
+        let (t, sync) = await sharingRig()
+        await t.fail("track", with: TraxTransportError.network("offline"))
+        sync.ingestFix(fix(30))
+        await settle(t, calls: 1)
+        await t.setOutgoing([])
+        await sync.refreshOutgoing()   // I stopped all shares
+        sync.flushPendingTrack()
+        for _ in 0..<50 { await Task.yield() }
+        #expect(await t.count("track") == 1, "a location was posted after sharing stopped")
+        #expect(await t.tracked.isEmpty)
+    }
+
     /// After a successful post the throttle holds.
     @Test func throttleHoldsAfterSuccess() async {
         let (t, sync) = await sharingRig()
@@ -137,5 +152,37 @@ import Testing
         await sync.backfillTransitions(ownerID: me)
         #expect(bridge.myRecentTransitions().map(\.id) == [serverCopy.id])
         #expect(sync.recentTransitions.map(\.id) == [serverCopy.id])
+    }
+
+    /// A geofence bounce (enter, leave, enter within two minutes) is three real
+    /// events: none may merge into another, for a friend or for me.
+    @Test func bouncesStayDistinct() async {
+        let t = FakeTraxTransport()
+        let store = TraxStore(inMemory: true)
+        let sync = TraxSync(transport: t, store: store, currentUserID: me)
+        let friend = UUID(), spot = UUID(), base = Fixtures.nowMs(-60)
+        let bounce = [
+            Fixtures.transition(owner: friend, place: spot, event: "enter", at: base),
+            Fixtures.transition(owner: friend, place: spot, event: "leave", at: base + 20_000),
+            Fixtures.transition(owner: friend, place: spot, event: "enter", at: base + 40_000),
+        ]
+        await t.queueFeed(Fixtures.page([], transitions: bounce))
+        await sync.refresh()
+        #expect(Set(sync.recentTransitions.map(\.id)) == Set(bounce.map(\.id)))
+        #expect(store.transitions(ownerID: friend).count == 3)
+
+        // My own server records (two enters 40 s apart) stay two as well.
+        let mine = [Fixtures.transition(owner: me, place: spot, event: "enter", at: base),
+                    Fixtures.transition(owner: me, place: spot, event: "enter", at: base + 40_000)]
+        await t.setTransitionsFor(mine)
+        await sync.backfillTransitions(ownerID: me)
+        #expect(store.transitions(ownerID: me).count == 2)
+    }
+
+    @Test func localIDsAreRecognisable() {
+        let local = UUID.localTransitionID()
+        #expect(local.isLocalTransitionID)
+        #expect(!UUID().isLocalTransitionID, "a random v4 id must never read as local")
+        #expect(local.uuidString.dropFirst(14).first == "8")
     }
 }

@@ -13,7 +13,8 @@ final class SilentHost: TraxLocationHost {
     func transitionStream() -> AsyncStream<TraxTransition> { AsyncStream { self.crossingCont = $0 } }
     func requestLocationAccess() {}
     func setMonitoredRegions(_ regions: [TraxRegion]) {}
-    func setDesiredTracking(_ demand: TraxTrackingDemand) {}
+    private(set) var lastDemand: TraxTrackingDemand?
+    func setDesiredTracking(_ demand: TraxTrackingDemand) { lastDemand = demand }
     func send(_ fix: TraxFix) { fixCont?.yield(fix) }
 }
 
@@ -97,5 +98,29 @@ final class SilentHost: TraxLocationHost {
         engine = nil
         for _ in 0..<20 { await Task.yield() }
         #expect(weakEngine == nil, "a started engine kept itself alive")
+    }
+
+    /// A host that drops a started engine without stop() doesn't leave the
+    /// device tracking for nobody.
+    @Test func droppedEngineTurnsTrackingOff() async {
+        let (t, _, store) = rig()
+        let host = SilentHost()
+        let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
+        var engine: TraxEngine? = TraxEngine(config: config, host: host, transport: t, store: store)
+        engine?.start()
+        for _ in 0..<20 { await Task.yield() }
+        host.setDesiredTracking(.continuous)   // as if sharing had started
+        engine = nil
+        for _ in 0..<20 { await Task.yield() }
+        #expect(host.lastDemand == .off)
+    }
+
+    /// If page 2 of a feed fails, what page 1 applied is still published.
+    @Test func partialFeedFailureStillPublishes() async {
+        let (t, sync, _) = rig()
+        await t.queueFeed(Fixtures.page([Fixtures.share(owner: friend, viewer: me, lat: 30, lng: -90)], hasMore: true))
+        await t.fail("feed", with: TraxTransportError.network("dropped"), onCallNumber: 2)
+        await sync.refresh()
+        #expect(sync.incoming[friend] != nil, "page 1 was applied but never published")
     }
 }

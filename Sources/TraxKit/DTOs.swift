@@ -109,11 +109,31 @@ public struct TransitionDTO: Codable, Sendable, Identifiable, Hashable {
     /// the server when the post arrives.
     static let sameEventWindowMs: Int64 = 120_000
 
-    /// Same crossing under a different id (the server's copy of a local record).
-    func isSameEvent(as other: TransitionDTO) -> Bool {
-        id != other.id && ownerId == other.ownerId && placeId == other.placeId && event == other.event
-            && abs(createdAt - other.createdAt) <= Self.sameEventWindowMs
+    /// True when `self` is a record of my own crossing made on this device (a
+    /// local id) and `serverCopy` is the server's record of that same crossing:
+    /// same owner, place and event, within the window, and the server's own id.
+    /// Server records are never matched against each other: a geofence bounce
+    /// (enter, leave, enter) produces distinct real events.
+    func isLocalTwin(of serverCopy: TransitionDTO) -> Bool {
+        id.isLocalTransitionID && !serverCopy.id.isLocalTransitionID
+            && ownerId == serverCopy.ownerId && placeId == serverCopy.placeId && event == serverCopy.event
+            && abs(createdAt - serverCopy.createdAt) <= Self.sameEventWindowMs
     }
+}
+
+extension UUID {
+    /// An id minted on this device for a crossing it recorded itself, before the
+    /// server's copy exists. UUID version 8 (custom): the server only mints
+    /// random version-4 ids, so the two can't collide or be confused, and the
+    /// mark survives a restart without a store schema change.
+    static func localTransitionID() -> UUID {
+        var u = UUID().uuid
+        u.6 = (u.6 & 0x0F) | 0x80   // version 8
+        u.8 = (u.8 & 0x3F) | 0x80   // RFC 4122 variant
+        return UUID(uuid: u)
+    }
+
+    var isLocalTransitionID: Bool { (uuid.6 >> 4) == 8 }
 }
 
 // --- timeline (trips + visits) ---

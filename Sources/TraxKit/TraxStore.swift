@@ -181,16 +181,19 @@ public final class TraxStore {
         let id = dto.id
         let fetch = FetchDescriptor<TransitionEntity>(predicate: #Predicate { $0.id == id })
         if (try? context.fetch(fetch).first) != nil { return }
-        // The server's copy of a crossing recorded locally: adopt its id + time.
-        let owner = dto.ownerId, place = dto.placeId, event = dto.event
-        let lo = dto.createdAt - TransitionDTO.sameEventWindowMs, hi = dto.createdAt + TransitionDTO.sameEventWindowMs
-        let twin = FetchDescriptor<TransitionEntity>(predicate: #Predicate {
-            $0.ownerId == owner && $0.placeId == place && $0.event == event && $0.createdAt >= lo && $0.createdAt <= hi
-        })
-        if let local = try? context.fetch(twin).first {
-            local.id = dto.id
-            local.createdAt = dto.createdAt
-            return
+        // The server's copy of a crossing this device recorded under a local id:
+        // adopt the server's id + time. Only a local record is ever rewritten.
+        if !dto.id.isLocalTransitionID {
+            let owner = dto.ownerId, place = dto.placeId, event = dto.event
+            let lo = dto.createdAt - TransitionDTO.sameEventWindowMs, hi = dto.createdAt + TransitionDTO.sameEventWindowMs
+            let candidates = FetchDescriptor<TransitionEntity>(predicate: #Predicate {
+                $0.ownerId == owner && $0.placeId == place && $0.event == event && $0.createdAt >= lo && $0.createdAt <= hi
+            })
+            if let local = ((try? context.fetch(candidates)) ?? []).first(where: { $0.id.isLocalTransitionID }) {
+                local.id = dto.id
+                local.createdAt = dto.createdAt
+                return
+            }
         }
         context.insert(TransitionEntity(id: dto.id, ownerId: dto.ownerId, placeId: dto.placeId,
                                         placeName: dto.placeName, placeEmoji: dto.placeEmoji,

@@ -139,32 +139,38 @@ public final class TraxSync {
         let task = Task { await self.runRefreshes() }
         inflight = task
         await task.value
-        inflight = nil
     }
 
     private func runRefreshes() async {
         isLoading = true
-        defer { isLoading = false }
         repeat {
             refreshAgain = false
             await refreshOnce()
         } while refreshAgain && !Task.isCancelled
+        // Cleared here, in the same main-actor step that decides there's no
+        // further pass: a caller can't find a finished task still installed.
+        refreshAgain = false
+        inflight = nil
+        isLoading = false
     }
 
     private func refreshOnce() async {
         let gen = generation
         guard current(gen) else { return }
         var since = store.cursor()
+        var applied = false
+        // Publish whatever was applied, even if a later page fails.
+        defer { if applied && current(gen) { publish() } }
         do {
             while true {
                 let page = try await transport.feed(since: since > 0 ? since : nil, limit: nil)
                 guard current(gen) else { return }   // stopped or wiped meanwhile: write nothing
                 store.applyFeedPage(page)
+                applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
                 guard page.hasMore, page.syncTs > since else { break }
                 since = page.syncTs
             }
-            publish()
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
@@ -181,6 +187,7 @@ public final class TraxSync {
             let fresh = try await transport.shares().outgoing
             guard current(gen) else { return }
             if fresh != outgoing { outgoing = fresh }
+            if fresh.isEmpty { pendingTrack = nil }   // nothing to deliver a fix to any more
             pollSucceeded("outgoing")
         } catch is CancellationError {
         } catch {
@@ -276,12 +283,13 @@ public final class TraxSync {
     /// by `ingestFix` and by the poll (so a fix whose post failed still goes out
     /// when no new fix arrives).
     func flushPendingTrack() {
+        guard !outgoing.isEmpty else { pendingTrack = nil; return }   // stopped sharing: never post
         guard !trackInFlight, pendingTrack != nil, current(generation) else { return }
         trackInFlight = true
         let gen = generation
         Task {
             defer { self.trackInFlight = false }
-            while let body = self.pendingTrack, self.current(gen) {
+            while let body = self.pendingTrack, self.current(gen), !self.outgoing.isEmpty {
                 self.pendingTrack = nil
                 do {
                     let ack = try await self.transport.track(body)
@@ -369,7 +377,7 @@ public final class TraxSync {
     private func recordOwnTransition(placeID: UUID, event: String) {
         guard !isWiped, let place = store.allPlaces().first(where: { $0.id == placeID }) else { return }
         let dto = TransitionDTO(
-            id: UUID(), ownerId: currentUserID, placeId: placeID,
+            id: .localTransitionID(), ownerId: currentUserID, placeId: placeID,
             placeName: place.name, placeEmoji: place.emoji, event: event,
             createdAt: Int64(Date().timeIntervalSince1970 * 1000))
         store.upsertTransition(dto); store.save()
@@ -406,15 +414,21 @@ public final class TraxSync {
     /// your own back-read; a friend's id works only with an active exact share.
     /// The "read it back" path the chat bridge projects into the thread.
     public func transitions(ownerID: UUID, since: Int64? = nil, limit: Int? = nil) async -> [TransitionDTO] {
+        await fetchTransitions(ownerID: ownerID, since: since, limit: limit).list
+    }
+
+    /// The read plus the generation it started under, so a writer can drop it.
+    private func fetchTransitions(ownerID: UUID, since: Int64?, limit: Int?) async -> (list: [TransitionDTO], gen: Int) {
+        let gen = generation
         do {
             let trs = try await transport.transitionsFor(ownerId: ownerID, since: since, limit: limit)
-            lastError = nil
-            return trs
+            if current(gen) { lastError = nil }
+            return (trs, gen)
         } catch is CancellationError {
-            return []
+            return ([], gen)
         } catch {
-            lastError = describe(error)
-            return []
+            if current(gen) { lastError = describe(error) }
+            return ([], gen)
         }
     }
 
@@ -423,8 +437,8 @@ public final class TraxSync {
     /// rides the SAME @Observable path as the live feed, instead of a second source
     /// the host has to merge separately (which won't reliably refresh the UI).
     public func backfillTransitions(ownerID: UUID, limit: Int? = nil) async {
-        let trs = await transitions(ownerID: ownerID, since: nil, limit: limit)
-        guard !trs.isEmpty, !isWiped else { return }
+        let (trs, gen) = await fetchTransitions(ownerID: ownerID, since: nil, limit: limit)
+        guard !trs.isEmpty, current(gen) else { return }
         if ownerID == currentUserID {
             for t in trs { store.upsertTransition(t) }   // server copies replace my local ones
             store.save()
@@ -435,15 +449,14 @@ public final class TraxSync {
 
     // MARK: - helpers
 
-    /// Merge new transitions (newest first, dedup, cap 50). A copy of one of my
-    /// own crossings (recorded locally the moment it happened, under a local id)
-    /// replaces the local one when it comes back from the server under its own
-    /// id: same place, same event, within `TransitionDTO.sameEventWindowMs`.
+    /// Merge new transitions (newest first, dedup by id, cap 50). The server's
+    /// copy of one of my own crossings replaces the local record of it (see
+    /// `TransitionDTO.isLocalTwin`); server records never replace each other.
     private func mergeTransitions(_ incoming: [TransitionDTO]) {
         var merged = recentTransitions
         for t in incoming {
             if merged.contains(where: { $0.id == t.id }) { continue }
-            if let i = merged.firstIndex(where: { $0.isSameEvent(as: t) }) {
+            if let i = merged.firstIndex(where: { $0.isLocalTwin(of: t) }) {
                 merged[i] = t
             } else {
                 merged.append(t)

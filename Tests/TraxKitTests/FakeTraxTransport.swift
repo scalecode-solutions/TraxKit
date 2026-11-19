@@ -14,6 +14,8 @@ actor FakeTraxTransport: TraxTransport {
     var trackAck = TrackAckDTO(ok: true, shares: 1, ts: 0)
     /// Calls named here throw this error (once per listed occurrence).
     var failures: [String: [Error]] = [:]
+    /// call name → (1-based call number, error): that one call fails.
+    private var failOnNumber: [String: (Int, Error)] = [:]
     /// Calls named here suspend until `release(_:)`.
     private var gates: [String: CheckedContinuation<Void, Never>] = [:]
     private var gated: Set<String> = []
@@ -32,6 +34,10 @@ actor FakeTraxTransport: TraxTransport {
     func fail(_ call: String, with error: Error, times: Int = 1) {
         failures[call, default: []].append(contentsOf: Array(repeating: error, count: times))
     }
+    /// Only the `number`th call of `call` (counting from 1) fails.
+    func fail(_ call: String, with error: Error, onCallNumber number: Int) {
+        failOnNumber[call] = (number, error)
+    }
     /// The next `call` suspends until `release(call)`.
     func hold(_ call: String) { gated.insert(call) }
     func release(_ call: String) {
@@ -44,6 +50,9 @@ actor FakeTraxTransport: TraxTransport {
         calls.append(call)
         if gated.contains(call) {
             await withCheckedContinuation { gates[call] = $0 }
+        }
+        if let (n, e) = failOnNumber[call], calls.filter({ $0 == call }).count == n {
+            throw e
         }
         if var queue = failures[call], !queue.isEmpty {
             let e = queue.removeFirst()

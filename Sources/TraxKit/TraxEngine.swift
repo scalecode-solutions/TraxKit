@@ -46,6 +46,9 @@ public final class TraxEngine {
     /// and deinit ends them.
     isolated deinit {
         pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
+        guard pollTask != nil else { return }   // never started, or already stopped
+        host.setDesiredTracking(.off)           // don't leave the device tracking for nobody
+        host.setMonitoredRegions([])
     }
 
     // MARK: - Location-facing API (replaces TraxSelfState / TraxPermissions)
