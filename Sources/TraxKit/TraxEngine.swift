@@ -23,6 +23,7 @@ public final class TraxEngine {
 
     private var pollTask: Task<Void, Never>?
     private var fixTask: Task<Void, Never>?
+    private var expiryTask: Task<Void, Never>?
     private var transitionTask: Task<Void, Never>?
 
     public convenience init(config: TraxConfig, host: any TraxLocationHost) {
@@ -46,7 +47,7 @@ public final class TraxEngine {
     /// and deinit ends them.
     isolated deinit {
         nap?.cancel()
-        pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
+        pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel(); expiryTask?.cancel()
         guard pollTask != nil else { return }   // never started, or already stopped
         host.setDesiredTracking(.off)           // don't leave the device tracking for nobody
         host.setMonitoredRegions([])
@@ -161,8 +162,8 @@ public final class TraxEngine {
     public func stop() {
         sync.invalidate()
         nap?.cancel(); nap = nil
-        pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
-        pollTask = nil; fixTask = nil; transitionTask = nil
+        pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel(); expiryTask?.cancel()
+        pollTask = nil; fixTask = nil; transitionTask = nil; expiryTask = nil
         host.setDesiredTracking(.off)
         host.setMonitoredRegions([])
     }
@@ -188,7 +189,7 @@ public final class TraxEngine {
         lastOutgoingRefresh = Date(); lastPlacesRefresh = Date()
         pushRegions()
         pushDemand()
-        observeOutgoing()
+        observeSharing()
     }
 
     /// One poll: the feed every tick; my outgoing shares and places on their
@@ -223,13 +224,38 @@ public final class TraxEngine {
     }
 
     /// React to share start/stop immediately → update the host's tracking demand.
-    private func observeOutgoing() {
-        withObservationTracking { _ = sync.outgoing } onChange: { [weak self] in
+    /// Re-push demand whenever the producer's "am I sharing" answer can change:
+    /// the outgoing list, a track ack, or a share reaching its expiry. Reading
+    /// `isSharing` tracks both stored inputs; expiry is time, so it gets a
+    /// one-shot at the earliest future expiresAt.
+    ///
+    /// Background truth (MVTRAX-18 step 9): with no feed poll in the background,
+    /// the producer relies on local expiry plus each post's ack. A share stopped
+    /// elsewhere ends at the next ack. A share started elsewhere while demand
+    /// is .off waits for the foreground refresh, since an app with no location
+    /// demand gets no background time to refresh in.
+    private func observeSharing() {
+        withObservationTracking { _ = sync.isSharing } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self, self.pollTask != nil else { return }
                 self.pushDemand()
-                self.observeOutgoing()
+                self.observeSharing()
             }
+        }
+        scheduleExpiryCheck()
+    }
+
+    private func scheduleExpiryCheck() {
+        expiryTask?.cancel()
+        let now = Date()
+        guard let next = sync.outgoing.compactMap(\.expiresAt)
+            .map({ Date(timeIntervalSince1970: TimeInterval($0) / 1000) })
+            .filter({ $0 > now }).min() else { return }
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(next.timeIntervalSince(now) + 0.5))
+            guard !Task.isCancelled, let self, self.pollTask != nil else { return }
+            self.pushDemand()
+            self.scheduleExpiryCheck()
         }
     }
 }

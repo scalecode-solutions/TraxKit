@@ -46,6 +46,35 @@ import Testing
         #expect(host.lastRegions == [])
     }
 
+    /// Sharing ended by the server's word (an ack saying no shares remain):
+    /// demand drops without waiting for a poll tick.
+    @Test func ackEndingSharingDropsDemand() async {
+        let (t, host, engine) = await rig(sharing: true)
+        engine.start()
+        #expect(await eventually { host.lastDemand == .continuous })
+        engine.setForeground(false)   // no ticks from here on
+        #expect(host.lastDemand == .significant)
+        await t.setTrackAck(TrackAckDTO(ok: true, shares: 0, ts: 0))
+        host.send(TraxFix(lat: 30, lng: -90, horizontalAccuracy: 5, timestamp: Date()))
+        #expect(await eventually { host.lastDemand == .off })
+        engine.stop()
+    }
+
+    /// A share reaching its expiresAt drops demand on its own, with no tick or ack.
+    @Test func expiryDropsDemand() async {
+        let t = FakeTraxTransport()
+        await t.setOutgoing([Fixtures.share(owner: me, viewer: friend,
+                                            expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + 600)])
+        let host = FakeTraxLocationHost()
+        let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
+        let engine = TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true))
+        engine.start()
+        #expect(await eventually { host.lastDemand == .continuous })
+        engine.setForeground(false)
+        #expect(await eventually { host.lastDemand == .off })
+        engine.stop()
+    }
+
     @Test func placesBecomeRegionsAndCrossingsArePosted() async {
         let (t, host, engine) = await rig()
         let place = Fixtures.place(owner: me, name: "Spot", lat: 30, lng: -90)
