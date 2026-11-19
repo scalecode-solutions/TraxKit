@@ -45,13 +45,17 @@ public struct TraxAvatar: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Circle()
-                    .fill(.tint.opacity(0.18))
-                    .overlay(
-                        Text(initials)
-                            .font(.system(size: size * 0.4, weight: .semibold))
-                            .foregroundStyle(.tint)
-                    )
+                // Initials on a wash of the host's tint. The text is .primary,
+                // not white: the kit can't know the host's tint (it can't be
+                // resolved to a colour), and white on a light tint, or on a
+                // mid one in dark mode, misses AA. Primary on a 28% wash
+                // clears 4.5:1 for any tint in both schemes (ContrastTests).
+                Text(Self.initials(name))
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .minimumScaleFactor(0.5)   // a fixed-size disc: the only place text may shrink
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.tint.opacity(Self.washOpacity))
             }
         }
         .frame(width: size, height: size)
@@ -61,9 +65,16 @@ public struct TraxAvatar: View {
         .task(id: AvatarKey(id: id, base64: avatarBase64)) { image = TraxAvatarCache.image(id: id, base64: avatarBase64) }
     }
 
-    private var initials: String {
-        guard let name, !name.isEmpty else { return "?" }
-        return name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
+    /// The tint wash behind initials (ContrastTests pins it).
+    static let washOpacity = 0.28
+
+    /// First and last name's initials ("Ada Byron King" → "AK", a middle name
+    /// doesn't count); one name gives one letter; none gives "?".
+    static func initials(_ name: String?) -> String {
+        let words = (name ?? "").split(whereSeparator: \.isWhitespace)
+        guard let first = words.first?.first else { return "?" }
+        guard words.count > 1, let last = words.last?.first else { return String(first).uppercased() }
+        return (String(first) + String(last)).uppercased()
     }
 }
 
