@@ -19,7 +19,7 @@ SIM_ID=$(xcrun simctl list devices available | sed -nE "s/^ +$SIM \(([0-9A-F-]{3
 [ -n "$SIM_ID" ] || { echo "no simulator named $SIM"; exit 2; }
 DD=${DD:-/tmp/traxlab-dd}
 ONLY=${ONLY:-}
-[[ -n "$ONLY" && "$ONLY" != */* ]] && ONLY=TraxLabUITests/$ONLY
+[[ -n "$ONLY" && "$ONLY" != */* ]] && ONLY=TraxLabUITests/TraxLabUITests/$ONLY   # target/class/method
 BASE=${BASE:-http://localhost:6091}
 curl -fsS "$BASE/health" >/dev/null || { echo "mvTrax isn't up at $BASE"; exit 2; }
 KEY=$(sed -n 's/^TOKEN_KEY=//p' "$SERVER/.env")

@@ -56,11 +56,30 @@ private struct LabConversation: View {
                 }
             }
             Section {
+                // How a chat host reaches the kit's per-person screens.
+                NavigationLink {
+                    LabPersonMapScreen(session: session, friend: friend)
+                } label: { Label("Map", systemImage: "map") }
+                    .accessibilityIdentifier("conversation.map")
+                NavigationLink {
+                    TraxPairSettingsView(engine: session.engine, otherID: friend)
+                } label: { Label("Location settings", systemImage: "location.circle") }
+                    .accessibilityIdentifier("conversation.pairSettings")
+            }
+            Section {
                 LabeledContent("Friend", value: friend.uuidString.prefix(8) + "…")
                     .font(.caption.monospaced())
             }
         }
         .navigationTitle("Conversation")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 6) {
+                    Text("Conversation").font(.headline)
+                    TraxShareBadge(engine: session.engine, otherID: friend)
+                }
+            }
+        }
         .onAppear { hold.arm(session) }
     }
 
@@ -79,5 +98,18 @@ private struct LabConversation: View {
         guard let ms else { return "—" }
         let date = Date(timeIntervalSince1970: TimeInterval(ms) / 1000)
         return date.formatted(date: .omitted, time: .standard)
+    }
+}
+
+/// The kit's person map, pushed from the conversation, holding the engine while
+/// it's in the stack (fast poll), as a chat host's destination does.
+private struct LabPersonMapScreen: View {
+    let session: LabSession
+    let friend: UUID
+    @State private var hold = LabMapHold()
+
+    var body: some View {
+        TraxView(engine: session.engine, focus: .constant(.person(friend)))
+            .onAppear { hold.arm(session) }
     }
 }

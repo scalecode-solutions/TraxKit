@@ -147,7 +147,6 @@ struct PlaceEditor: View {
     @State private var storedCoord: CLLocationCoordinate2D?    // an existing place's saved spot
     @FocusState private var queryFocused: Bool
 
-    private let geocoder = CLGeocoder()
     /// The host's current coordinate (was a private CLLocationManager).
     private var currentCoordinate: CLLocationCoordinate2D? {
         engine.currentFix.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
@@ -318,13 +317,13 @@ struct PlaceEditor: View {
     }
 
     private func reverseGeocode(_ c: CLLocationCoordinate2D) async {
-        let marks = try? await geocoder.reverseGeocodeLocation(CLLocation(latitude: c.latitude, longitude: c.longitude))
+        // MKReverseGeocodingRequest replaces the deprecated CLGeocoder (iOS 26).
+        guard let request = MKReverseGeocodingRequest(location: CLLocation(latitude: c.latitude, longitude: c.longitude))
+        else { return }
+        let item = (try? await request.mapItems)?.first
         // A slower lookup for a spot the pin has since left mustn't label the new one.
         guard let current = coord, Self.sameSpot(current, c) else { return }
-        guard let p = marks?.first else { return }
-        let line1 = [p.subThoroughfare, p.thoroughfare].compactMap { $0 }.joined(separator: " ")
-        let line2 = [p.locality, p.administrativeArea].compactMap { $0 }.joined(separator: ", ")
-        let full = [line1, line2].filter { !$0.isEmpty }.joined(separator: ", ")
+        let full = item?.address?.shortAddress ?? item?.address?.fullAddress ?? ""
         address = full.isEmpty ? nil : full
         addressCoord = full.isEmpty ? nil : c
     }

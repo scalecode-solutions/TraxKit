@@ -1,0 +1,245 @@
+import SwiftUI
+import MapKit
+
+/// One person's map: where they are (if they share with me), our shared places,
+/// and a card with their status, my share to them, our places and their recent
+/// arrivals. Find My grammar: the map is the page, the controls sit on a card.
+///
+/// Layout notes (field-tested in a host app first):
+/// - The card is a bottom SAFE-AREA INSET, not an overlay: MapKit frames the
+///   camera inside the safe area, so the person stays in the visible strip
+///   instead of under the card.
+/// - The card scrolls and is capped to part of the screen, so at the largest
+///   text it never pushes past the host's tab bar.
+/// - Recenter hangs above the card from a zero-height anchor, so it doesn't
+///   change the inset (and the camera frame) it sits on.
+/// - The map follows the person on each update until the user pans; recenter
+///   resumes following.
+struct TraxPersonMap: View {
+    let engine: TraxEngine
+    let personID: UUID
+    let appearance: TraxAppearance
+
+    @State private var camera: MapCameraPosition = .automatic
+    @ScaledMetric(relativeTo: .body) private var markerSize: CGFloat = 34
+
+    private var name: String {
+        let n = engine.people[personID]?.name
+        return (n?.isEmpty == false ? n! : "Member \(personID.uuidString.prefix(8))")
+    }
+    private var avatar: String? { engine.people[personID]?.avatar }
+    private var relationship: TraxRelationship { engine.relationship(with: personID) }
+    private var summary: TraxLocationSummary? { relationship.incoming }
+    private var places: [TraxSharedPlace] { engine.sharedPlaces(with: personID) }
+
+    var body: some View {
+        GeometryReader { geo in
+            map
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    card(maxHeight: geo.size.height * 0.5)
+                        .overlay(alignment: .topTrailing) {
+                            if summary?.coordinate != nil {
+                                recenterButton
+                                    .padding(.trailing, 12).padding(.bottom, 12)
+                                    .frame(height: 0, alignment: .bottom)
+                            }
+                        }
+                }
+        }
+        .navigationTitle(name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: personID) { await engine.backfillTransitions(with: personID, limit: 50) }
+        .onAppear { recenter(animated: false) }
+        // The update time is the change signal; following stops once the user
+        // pans (a programmatic camera isn't "positioned by user").
+        .onChange(of: summary?.lastUpdatedMs) { _, _ in
+            guard !camera.positionedByUser else { return }
+            recenter(animated: true)
+        }
+    }
+
+    // MARK: map
+
+    private var map: some View {
+        Map(position: $camera) {
+            if let coord = summary?.coordinate {
+                Annotation(name, coordinate: coord) { marker }
+            }
+            ForEach(places) { place in
+                let center = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+                Marker(place.name, monogram: Text(place.emoji ?? "📍"), coordinate: center)
+                    .tint(Color.accentColor.opacity(0.75))
+                MapCircle(center: center, radius: CLLocationDistance(place.radiusM))
+                    .foregroundStyle(Color.accentColor.opacity(0.08))
+                    .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        // No .ignoresSafeArea: the card's inset is what frames the camera.
+        .accessibilityIdentifier("person.map")
+    }
+
+    private var marker: some View {
+        TraxAvatar(id: personID, name: name, avatarBase64: avatar, size: markerSize)
+            .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
+            .shadow(radius: 3)
+            .overlay {
+                if summary?.isLive == true {   // live: fresh fixes are arriving
+                    Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 2)
+                        .frame(width: markerSize + 12, height: markerSize + 12)
+                }
+            }
+    }
+
+    private var recenterButton: some View {
+        Button { recenter(animated: true) } label: {
+            Image(systemName: "scope")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: .circle)
+                .shadow(radius: 2)
+        }
+        .buttonStyle(.plain)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .accessibilityLabel("Center on \(name)")
+        .accessibilityIdentifier("person.recenter")
+    }
+
+    private func recenter(animated: Bool) {
+        guard let coord = summary?.coordinate else { return }
+        let region = MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        if animated { withAnimation(.easeInOut(duration: 0.6)) { camera = .region(region) } }
+        else { camera = .region(region) }
+    }
+
+    // MARK: card
+
+    private func card(maxHeight: CGFloat) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                status
+                Divider()
+                TraxShareControls(engine: engine, personID: personID, personName: name, appearance: appearance)
+                if !places.isEmpty {
+                    Divider()
+                    placesSection
+                }
+                let recent = engine.recentTransitions(with: personID, limit: 5)
+                if !recent.isEmpty {
+                    Divider()
+                    recentSection(recent)
+                }
+            }
+            .padding(18)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: maxHeight)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(.ultraThinMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
+        .accessibilityIdentifier("person.card")
+    }
+
+    private var status: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 10) {
+                statusText
+                Spacer(minLength: 8)
+                weather
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                statusText
+                weather
+            }
+        }
+    }
+
+    private var statusText: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(headline).font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("person.status")
+            HStack(spacing: 8) {
+                if let ms = summary?.lastUpdatedMs {
+                    Text("\(Date(timeIntervalSince1970: Double(ms) / 1000), style: .relative) ago")
+                        .accessibilityIdentifier("person.updated")
+                }
+                if let battery = summary?.battery {
+                    Label("\(battery)%", systemImage: batterySymbol(battery, charging: summary?.batteryCharging == true))
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var weather: some View {
+        if let coord = summary?.coordinate {
+            TraxWeatherBadge(store: engine.weather, latitude: coord.latitude, longitude: coord.longitude, showCondition: true)
+                .font(.subheadline)
+        }
+    }
+
+    private var headline: String {
+        guard let summary else { return appearance.with(appearance.notSharing, name) }
+        if summary.atPlace, let place = summary.placeName { return "At \(place)" }
+        if summary.coordinate != nil { return summary.isLive ? "Live location" : "Last known location" }
+        return "Away from shared places"   // a place-precision share, away from them
+    }
+
+    private func batterySymbol(_ level: Int, charging: Bool) -> String {
+        if charging { return "battery.100percent.bolt" }
+        switch level {
+        case ..<13: return "battery.0percent"
+        case ..<38: return "battery.25percent"
+        case ..<63: return "battery.50percent"
+        case ..<88: return "battery.75percent"
+        default:    return "battery.100percent"
+        }
+    }
+
+    private var placesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(appearance.with(appearance.placesTogether, name)).font(.subheadline.weight(.semibold))
+            ForEach(places) { place in
+                HStack {
+                    Text("\(place.emoji.map { "\($0) " } ?? "")\(place.name)").font(.subheadline)
+                    Spacer()
+                    Button("Stop", role: .destructive) {
+                        Task { try? await engine.unsharePlace(place.id, with: personID) }
+                    }
+                    .buttonStyle(.borderless)
+                    .frame(minHeight: 44)
+                }
+            }
+        }
+    }
+
+    private func recentSection(_ items: [TransitionDTO]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recent").font(.subheadline.weight(.semibold))
+            ForEach(items) { t in
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        transitionLabel(t)
+                        Spacer()
+                        transitionTime(t)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        transitionLabel(t)
+                        transitionTime(t)
+                    }
+                }
+            }
+        }
+    }
+
+    private func transitionLabel(_ t: TransitionDTO) -> some View {
+        Label("\(t.event == "enter" ? "Arrived at" : "Left") \(t.placeEmoji.map { "\($0) " } ?? "")\(t.placeName)",
+              systemImage: t.event == "enter" ? "arrow.down.right.circle" : "arrow.up.right.circle")
+            .font(.subheadline)
+    }
+
+    private func transitionTime(_ t: TransitionDTO) -> some View {
+        Text(Date(timeIntervalSince1970: Double(t.createdAt) / 1000).formatted(date: .omitted, time: .shortened))
+            .font(.caption).foregroundStyle(.secondary)
+    }
+}

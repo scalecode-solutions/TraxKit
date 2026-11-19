@@ -5,8 +5,10 @@ import Testing
 /// The upload decision, pinned case by case.
 @Suite struct UploadPolicyTests {
     static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
-    /// ~0.000225° of latitude ≈ 25 m.
-    static let twentyFiveMetresNorth = 0.000226
+    /// ~0.00027° of latitude ≈ 30 m, clearly over the 25 m threshold (0.000226°
+    /// measured 25.05 m and flaked on rounding); 0.000216° ≈ 24 m, clearly under.
+    static let thirtyMetresNorth = 0.00027
+    static let twentyFourMetresNorth = 0.000216
 
     static func fix(lat: Double = 30, motion: String? = "walking", at seconds: TimeInterval) -> TraxFix {
         TraxFix(lat: lat, lng: -90, horizontalAccuracy: 5, motion: motion, timestamp: t0.addingTimeInterval(seconds))
@@ -26,7 +28,8 @@ import Testing
         Case(name: "still, 30 s later", last: fix(at: 0), new: fix(at: 30), now: 30, expected: .skip),
         Case(name: "still, 89 s later", last: fix(at: 0), new: fix(at: 89), now: 89, expected: .skip),
         Case(name: "still, heartbeat due at 90 s", last: fix(at: 0), new: fix(at: 90), now: 90, expected: .post),
-        Case(name: "moved 25 m", last: fix(at: 0), new: fix(lat: 30 + twentyFiveMetresNorth, at: 10), now: 10, expected: .post),
+        Case(name: "moved 30 m", last: fix(at: 0), new: fix(lat: 30 + thirtyMetresNorth, at: 10), now: 10, expected: .post),
+        Case(name: "moved 24 m", last: fix(at: 0), new: fix(lat: 30 + twentyFourMetresNorth, at: 10), now: 10, expected: .skip),
         Case(name: "moved 10 m", last: fix(at: 0), new: fix(lat: 30.00009, at: 10), now: 10, expected: .skip),
         Case(name: "moved far, but under 5 s", last: fix(at: 0), new: fix(lat: 30.01, at: 3), now: 3, expected: .skip),
         Case(name: "motion changed", last: fix(motion: "walking", at: 0), new: fix(motion: "automotive", at: 10), now: 10, expected: .post),

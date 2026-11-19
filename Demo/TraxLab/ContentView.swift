@@ -52,9 +52,13 @@ enum LabLaunch {
     static var friend: UUID? {
         ProcessInfo.processInfo.environment["LAB_FRIEND"].flatMap(UUID.init(uuidString:))
     }
-    /// LAB_START=chats opens on the conversation instead of the map.
+    /// LAB_START=chats opens on the conversation, LAB_START=me on settings.
     static var startTab: LabTab {
-        ProcessInfo.processInfo.environment["LAB_START"] == "chats" ? .chats : .trax
+        switch ProcessInfo.processInfo.environment["LAB_START"] {
+        case "chats": .chats
+        case "me": .me
+        default: .trax
+        }
     }
 }
 
@@ -104,9 +108,17 @@ struct TraxLabHost: View {
                 .tabItem { Label("Pulse", systemImage: "waveform.path.ecg") }
                 .tag(LabTab.pulse)
 
-            StubScreen(title: "Me", systemImage: "person.crop.circle")
-                .tabItem { Label("Me", systemImage: "person.crop.circle") }
-                .tag(LabTab.me)
+            // The kit's own settings, hosted the way a chat app's settings would.
+            NavigationStack {
+                TraxSettingsView(engine: session.engine) {
+                    Section("Account") {
+                        LabeledContent("Server", value: server.rawValue)
+                        Button("Sign out", role: .destructive) { endSession() }
+                    }
+                }
+            }
+            .tabItem { Label("Me", systemImage: "person.crop.circle") }
+            .tag(LabTab.me)
         }
         .tint(.tardisBlue)
         .onAppear { session.start() }
