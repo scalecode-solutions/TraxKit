@@ -45,13 +45,13 @@ public struct TraxAvatar: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Circle()
-                    .fill(.tint.opacity(0.18))
-                    .overlay(
-                        Text(initials)
-                            .font(.system(size: size * 0.4, weight: .semibold))
-                            .foregroundStyle(.tint)
-                    )
+                // Like CalendarKit's CalAvatar: initials on the host's tint.
+                Text(Self.initials(name))
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.5)   // a fixed-size disc: the only place text may shrink
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.tint)
             }
         }
         .frame(width: size, height: size)
@@ -61,9 +61,13 @@ public struct TraxAvatar: View {
         .task(id: AvatarKey(id: id, base64: avatarBase64)) { image = TraxAvatarCache.image(id: id, base64: avatarBase64) }
     }
 
-    private var initials: String {
-        guard let name, !name.isEmpty else { return "?" }
-        return name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
+    /// First and last name's initials ("Ada Byron King" → "AK", a middle name
+    /// doesn't count); one name gives one letter; none gives "?".
+    static func initials(_ name: String?) -> String {
+        let words = (name ?? "").split(whereSeparator: \.isWhitespace)
+        guard let first = words.first?.first else { return "?" }
+        guard words.count > 1, let last = words.last?.first else { return String(first).uppercased() }
+        return (String(first) + String(last)).uppercased()
     }
 }
 

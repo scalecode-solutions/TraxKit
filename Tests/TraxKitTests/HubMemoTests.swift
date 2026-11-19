@@ -25,3 +25,18 @@ import Testing
         #expect(memo.builds == 3)
     }
 }
+
+@Suite struct AvatarInitialsTests {
+    @Test(arguments: [
+        ("Ada Byron King", "AK"),   // first + last, the middle name doesn't count
+        ("ada lovelace", "AL"),
+        ("Ada", "A"),
+        ("  Ada   Lovelace  ", "AL"),
+        ("", "?"),
+    ])
+    func initials(_ name: String, _ want: String) {
+        #expect(TraxAvatar.initials(name) == want)
+    }
+
+    @Test func noName() { #expect(TraxAvatar.initials(nil) == "?") }
+}
