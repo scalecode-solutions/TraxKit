@@ -11,12 +11,14 @@ public struct TraxWeatherDetailView: View {
     var title: String
 
     @State private var detail: TraxWeatherDetail?
+    /// A fetch finished (until then, no forecast means "loading", not "unavailable").
+    @State private var loaded = false
 
     public init(store: TraxWeatherStore, latitude: Double, longitude: Double, title: String = "Weather") {
         self.store = store; self.latitude = latitude; self.longitude = longitude; self.title = title
     }
 
-    private var regionKey: String { "\(Int(latitude * 10)),\(Int(longitude * 10))" }
+    private var regionKey: String { TraxWeatherStore.regionKey(latitude: latitude, longitude: longitude) }
 
     public var body: some View {
         ScrollView {
@@ -29,6 +31,8 @@ public struct TraxWeatherDetailView: View {
                     metricsGrid(d)
                 }
                 .padding()
+            } else if store.isLoadingDetail(latitude: latitude, longitude: longitude) || !loaded {
+                ProgressView().padding(.top, 80)
             } else {
                 ContentUnavailableView("Weather unavailable", systemImage: "cloud.slash",
                                        description: Text("No forecast for this location right now."))
@@ -38,9 +42,11 @@ public struct TraxWeatherDetailView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: regionKey) {
+            loaded = false
             detail = store.cachedDetail(latitude: latitude, longitude: longitude)
             await store.refreshDetail(latitude: latitude, longitude: longitude)
             detail = store.cachedDetail(latitude: latitude, longitude: longitude)
+            loaded = true
         }
     }
 

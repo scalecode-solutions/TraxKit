@@ -194,9 +194,13 @@ public struct WeatherKitProvider: TraxWeatherProviding {
     }
 }
 
-/// Shared, coordinate-rounded weather cache. One fetch per ~11km region (weather
-/// is regional), reused across self + every sharer in that area — the fix for
-/// per-person fetch waste. 15-minute TTL.
+/// Shared, coordinate-bucketed weather cache. One fetch per ~11 km region
+/// (weather is regional), reused across me and every sharer in that area.
+///
+/// - Only the bucket's center goes to the weather provider, never the person's
+///   exact coordinate: the cache can't use more precision, so Apple doesn't get it.
+/// - Stale-while-revalidate: a value older than `ttl` is still shown (up to
+///   `maxStale`) while a fresh one is fetched, so badges don't go blank.
 @MainActor
 @Observable
 public final class TraxWeatherStore {
@@ -205,55 +209,86 @@ public final class TraxWeatherStore {
     private var inflight: Set<String> = []
     private var detailCache: [String: (d: TraxWeatherDetail, at: Date)] = [:]
     private var detailInflight: Set<String> = []
-    private let ttl: TimeInterval = 15 * 60
+    private let now: () -> Date
+    /// Refetch after this long.
+    static let ttl: TimeInterval = 15 * 60
+    /// Show a stale value for up to this long; older ones are dropped.
+    static let maxStale: TimeInterval = 6 * 3600
+    /// The bucket size in degrees (~11 km).
+    static let bucket = 0.1
 
-    public init(provider: any TraxWeatherProviding) { self.provider = provider }
-
-    private func key(_ lat: Double, _ lng: Double) -> String {
-        // Round to ~0.1° (~11km) — weather doesn't vary block-to-block.
-        "\(Int(lat * 10)),\(Int(lng * 10))"
+    public convenience init(provider: any TraxWeatherProviding) {
+        self.init(provider: provider, now: Date.init)
     }
 
-    /// Cached value if fresh (observed — views re-render when the cache fills).
+    init(provider: any TraxWeatherProviding, now: @escaping () -> Date) {
+        self.provider = provider
+        self.now = now
+    }
+
+    /// The bucket a coordinate falls in (floored, so negative coordinates
+    /// bucket the same way as positive ones).
+    static func cell(_ v: Double) -> Int { Int((v / bucket).rounded(.down)) }
+    static func center(_ v: Double) -> Double { (Double(cell(v)) + 0.5) * bucket }
+    /// The key views use for `.task(id:)`: one per bucket.
+    public static func regionKey(latitude: Double, longitude: Double) -> String {
+        "\(cell(latitude)),\(cell(longitude))"
+    }
+    private func key(_ lat: Double, _ lng: Double) -> String { Self.regionKey(latitude: lat, longitude: lng) }
+
+    /// The latest value for the region, fresh or stale (observed: views
+    /// re-render when the cache fills).
     public func cached(latitude: Double, longitude: Double) -> TraxWeather? {
-        let k = key(latitude, longitude)
-        if let e = cache[k], Date().timeIntervalSince(e.at) < ttl { return e.w }
-        return nil
+        guard let e = cache[key(latitude, longitude)], now().timeIntervalSince(e.at) < Self.maxStale else { return nil }
+        return e.w
     }
 
-    /// Fetch-if-stale for a coordinate (call from .task). Coalesces concurrent
-    /// requests for the same region.
+    /// Fetch if missing or older than `ttl` (call from .task). Coalesces
+    /// concurrent requests for the same region.
     public func refresh(latitude: Double, longitude: Double) async {
         let k = key(latitude, longitude)
-        if let e = cache[k], Date().timeIntervalSince(e.at) < ttl { return }
+        if let e = cache[k], now().timeIntervalSince(e.at) < Self.ttl { return }
         if inflight.contains(k) { return }
         inflight.insert(k)
-        let w = await provider.current(latitude: latitude, longitude: longitude)
+        let w = await provider.current(latitude: Self.center(latitude), longitude: Self.center(longitude))
         inflight.remove(k)
-        if let w { cache[k] = (w, Date()) }
+        if let w { cache[k] = (w, now()); prune() }
     }
 
-    /// Cached full forecast if fresh (observed).
+    /// The latest full forecast for the region, fresh or stale (observed).
     public func cachedDetail(latitude: Double, longitude: Double) -> TraxWeatherDetail? {
-        let k = key(latitude, longitude)
-        if let e = detailCache[k], Date().timeIntervalSince(e.at) < ttl { return e.d }
-        return nil
+        guard let e = detailCache[key(latitude, longitude)], now().timeIntervalSince(e.at) < Self.maxStale else { return nil }
+        return e.d
     }
 
-    /// Fetch-if-stale full forecast for a coordinate. Coalesces per region. Also
-    /// warms the lightweight current-conditions cache from the same fetch.
+    /// Whether a full forecast for the region is being fetched (the detail
+    /// screen shows progress rather than "unavailable").
+    public func isLoadingDetail(latitude: Double, longitude: Double) -> Bool {
+        detailInflight.contains(key(latitude, longitude))
+    }
+
+    /// Fetch the full forecast if missing or older than `ttl`. Coalesces per
+    /// region, and warms the current-conditions cache from the same fetch.
     public func refreshDetail(latitude: Double, longitude: Double) async {
         let k = key(latitude, longitude)
-        if let e = detailCache[k], Date().timeIntervalSince(e.at) < ttl { return }
+        if let e = detailCache[k], now().timeIntervalSince(e.at) < Self.ttl { return }
         if detailInflight.contains(k) { return }
         detailInflight.insert(k)
-        let d = await provider.detail(latitude: latitude, longitude: longitude)
+        let d = await provider.detail(latitude: Self.center(latitude), longitude: Self.center(longitude))
         detailInflight.remove(k)
         if let d {
-            let now = Date()
-            detailCache[k] = (d, now)
-            cache[k] = (d.current, now)   // share the fetch with the badge cache
+            let t = now()
+            detailCache[k] = (d, t)
+            cache[k] = (d.current, t)   // share the fetch with the badge cache
+            prune()
         }
+    }
+
+    /// Drop values too old to show, so the cache doesn't grow without bound.
+    private func prune() {
+        let t = now()
+        cache = cache.filter { t.timeIntervalSince($0.value.at) < Self.maxStale }
+        detailCache = detailCache.filter { t.timeIntervalSince($0.value.at) < Self.maxStale }
     }
 }
 
@@ -279,7 +314,7 @@ public struct TraxWeatherBadge: View {
                 }
             }
         }
-        .task(id: "\(Int(latitude * 10)),\(Int(longitude * 10))") {
+        .task(id: TraxWeatherStore.regionKey(latitude: latitude, longitude: longitude)) {
             await store.refresh(latitude: latitude, longitude: longitude)
         }
     }
