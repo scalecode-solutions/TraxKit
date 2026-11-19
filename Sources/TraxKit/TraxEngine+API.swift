@@ -96,7 +96,7 @@ public extension TraxEngine {
     var revision: Int { sync.revision }
 
     /// Friends and me, by id: names and avatars for every row.
-    var people: [UUID: TraxContact] { Dictionary(sync.contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
+    var people: [UUID: TraxContact] { sync.contactsByID }
 
     var outgoingShares: [TraxOutgoingShare] { sync.outgoing.map(TraxOutgoingShare.init) }
 

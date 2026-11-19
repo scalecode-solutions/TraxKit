@@ -24,26 +24,21 @@ public struct TraxTimelineView: View {
         self.title = title
     }
 
-    /// Trips + visits interleaved, most recent first.
-    private var items: [TimelineItem] {
-        let t = data.trips.map { TimelineItem.trip($0) }
-        let v = data.visits.map { TimelineItem.visit($0) }
-        return (t + v).sorted { $0.startTs > $1.startTs }
-    }
+    /// The day, prepared once when it loads: trips + visits interleaved (most
+    /// recent first) and the points in time order. Sorting a whole day (up to
+    /// 2,000 points) on every render was the cost.
+    @State private var prepared = PreparedDay()
 
-    private var dayCoords: [CLLocationCoordinate2D] {
-        data.points.sorted { $0.recordedAt < $1.recordedAt }
-            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
-    }
+    private var items: [TimelineItem] { prepared.items }
+    private var dayCoords: [CLLocationCoordinate2D] { prepared.coords }
 
     /// The selected trip's sub-segment (points within its window), highlighted.
     private var journeyCoords: [CLLocationCoordinate2D] {
         guard let id = selectedJourney,
               case let .trip(t)? = items.first(where: { $0.id == id }) else { return [] }
-        return data.points
-            .filter { $0.recordedAt >= t.startTs && $0.recordedAt <= t.endTs }
-            .sorted { $0.recordedAt < $1.recordedAt }
-            .map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+        return zip(prepared.times, prepared.coords)
+            .filter { $0.0 >= t.startTs && $0.0 <= t.endTs }
+            .map(\.1)
     }
 
     public var body: some View {
@@ -155,6 +150,7 @@ public struct TraxTimelineView: View {
     private func reload() async {
         loading = true
         data = await sync.timeline(ownerID: owner, day: day)
+        prepared = PreparedDay(data)
         loading = false
         selectedJourney = nil
         frame(dayCoords)
@@ -230,5 +226,21 @@ struct JourneyRow: View {
     private func durationText(_ s: Int) -> String { s < 3600 ? "\(s/60)m" : "\(s/3600)h \((s%3600)/60)m" }
     private func distanceText(_ m: Double) -> String {
         let mi = m / 1609.34; return mi < 0.1 ? "\(Int(m)) m" : String(format: "%.1f mi", mi)
+    }
+}
+
+/// A day's timeline in the order the screen shows it, built once per load.
+struct PreparedDay {
+    var items: [TimelineItem] = []
+    var coords: [CLLocationCoordinate2D] = []
+    var times: [Int64] = []
+
+    init() {}
+    init(_ day: TimelineDay) {
+        items = (day.trips.map { TimelineItem.trip($0) } + day.visits.map { TimelineItem.visit($0) })
+            .sorted { $0.startTs > $1.startTs }
+        let pts = day.points.sorted { $0.recordedAt < $1.recordedAt }
+        coords = pts.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+        times = pts.map(\.recordedAt)
     }
 }

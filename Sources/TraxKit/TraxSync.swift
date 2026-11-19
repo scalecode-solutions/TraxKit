@@ -33,6 +33,8 @@ public final class TraxSync {
     private(set) var placeSnapshots: [PlaceSnapshot] = []
     /// The people directory (friends and me), by name, as values.
     private(set) var contacts: [TraxContact] = []
+    /// The same directory by id, built once per change (every row looks names up).
+    private(set) var contactsByID: [UUID: TraxContact] = [:]
     private var publishedChanges = -1
 
     /// Bumped by `invalidate()` (stop) and `wipe()`: work that started before
@@ -130,7 +132,10 @@ public final class TraxSync {
         let places = store.placeSnapshots()
         if places != placeSnapshots { placeSnapshots = places }
         let people = store.contactSnapshots()
-        if people != contacts { contacts = people }
+        if people != contacts {
+            contacts = people
+            contactsByID = Dictionary(people.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        }
     }
 
     public convenience init(config: TraxConfig, store: TraxStore) {
