@@ -199,6 +199,32 @@ public final class TraxStore {
     public func save() {
         guard context.hasChanges else { return }
         try? context.save()
+        changes += 1
+    }
+
+    /// Bumped on every save that changed something (and by a wipe): the sync
+    /// layer republishes its snapshots when this moves.
+    public private(set) var changes = 0
+
+    // MARK: - Snapshots (values for the sync layer to publish)
+
+    /// Each sharer's current share pointed at me: the newest unexpired row per
+    /// owner (same rule as `incomingShare(ownerID:)`).
+    func incomingSnapshots(now: Date = Date()) -> [UUID: IncomingShareSnapshot] {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let fetch = FetchDescriptor<ShareEntity>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        var out: [UUID: IncomingShareSnapshot] = [:]
+        for e in (try? context.fetch(fetch)) ?? [] where out[e.ownerId] == nil {
+            if let exp = e.expiresAt, exp <= nowMs { continue }
+            out[e.ownerId] = IncomingShareSnapshot(e)
+        }
+        return out
+    }
+
+    /// Every place visible to me, by name (stable order).
+    func placeSnapshots() -> [PlaceSnapshot] {
+        allPlaces().map(PlaceSnapshot.init)
+            .sorted { ($0.name.lowercased(), $0.id.uuidString) < ($1.name.lowercased(), $1.id.uuidString) }
     }
 
     // MARK: - Wipe (sign-out)
@@ -217,5 +243,6 @@ public final class TraxStore {
         try? context.delete(model: TransitionEntity.self)
         try? context.delete(model: SyncCursorEntity.self)
         save()
+        changes += 1
     }
 }

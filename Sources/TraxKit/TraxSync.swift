@@ -20,6 +20,17 @@ public final class TraxSync {
     /// capped). Accumulated from feed pages; transient (not persisted).
     public private(set) var recentTransitions: [TransitionDTO] = []
 
+    /// Bumped whenever the cached data changes (a feed page, places, contacts,
+    /// my own crossings, a wipe). Anything that reads the store from a view
+    /// touches this first, so the view re-renders when the store moves.
+    public private(set) var revision = 0
+    /// Each sharer's current presented location, published as values (the
+    /// bridge reads these; nothing fetches inside a view body).
+    private(set) var incoming: [UUID: IncomingShareSnapshot] = [:]
+    /// Places visible to me, published as values.
+    private(set) var placeSnapshots: [PlaceSnapshot] = []
+    private var publishedChanges = -1
+
     public let currentUserID: UUID
     private let transport: any TraxTransport
     private let store: TraxStore
@@ -57,6 +68,21 @@ public final class TraxSync {
         self.transport = transport
         self.store = store
         self.currentUserID = currentUserID
+        publish()   // a cold start shows what the store already holds
+    }
+
+    /// Republish the snapshots from the store. Values are assigned only when
+    /// they changed, so an idle poll re-renders nothing; `revision` moves when
+    /// the store saved anything.
+    func publish() {
+        if store.changes != publishedChanges {
+            publishedChanges = store.changes
+            revision += 1
+        }
+        let inc = store.incomingSnapshots()
+        if inc != incoming { incoming = inc }
+        let places = store.placeSnapshots()
+        if places != placeSnapshots { placeSnapshots = places }
     }
 
     public convenience init(config: TraxConfig, store: TraxStore) {
@@ -82,6 +108,7 @@ public final class TraxSync {
                 guard page.hasMore, page.syncTs > since else { break }
                 since = page.syncTs
             }
+            publish()
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
@@ -112,7 +139,8 @@ public final class TraxSync {
         do {
             let contacts = try await transport.contacts()
             store.upsertContacts(contacts)
-            if let me = try? await transport.me() { store.upsertContact(me) }
+            if let me = try? await transport.me() { store.upsertContact(me); store.save() }
+            publish()
             pollSucceeded("contacts")
         } catch is CancellationError {
         } catch {
@@ -178,6 +206,7 @@ public final class TraxSync {
         do {
             let places = try await transport.places()
             store.replacePlaces(places)
+            publish()
             pollSucceeded("places")
         } catch is CancellationError {
         } catch {
@@ -239,6 +268,7 @@ public final class TraxSync {
             placeName: place.name, placeEmoji: place.emoji, event: event,
             createdAt: Int64(Date().timeIntervalSince1970 * 1000))
         store.upsertTransition(dto); store.save()
+        publish()
         mergeTransitions([dto])
     }
 
