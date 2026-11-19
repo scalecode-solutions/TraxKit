@@ -48,15 +48,18 @@ public struct ConnectTraxTransport: TraxTransport {
 
     // MARK: - Feed
 
-    public func feed(since: Int64?, limit: Int?) async throws -> FeedDTO {
+    public func feed(since: Int64?, rev: Int64?, loadFrom: Int64?, limit: Int?) async throws -> FeedDTO {
         var req = Trax_V1_FeedRequest()
         if let since { req.since = since }
+        if let rev { req.rev = rev }
+        if let loadFrom { req.loadFrom = loadFrom }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.feed(request: req, headers: try await authHeaders()))
         return FeedDTO(shares: r.shares.map(shareDTO),
                        transitions: r.transitions.map(transitionDTO),
                        syncTs: r.syncTs, hasMore: r.hasMore_p,
-                       stoppedIds: r.stoppedIds.map(uid))
+                       stoppedIds: r.stoppedIds.map(uid),
+                       rev: r.rev, reload: r.reload, loadFrom: r.loadFrom == 0 ? nil : r.loadFrom)
     }
 
     // MARK: - Producer

@@ -141,6 +141,11 @@ public final class TraxSync {
         await task.value
     }
 
+    /// How far each feed request reaches back before the last sync time.
+    static let sinceOverlapMs: Int64 = 120_000
+    /// A runaway guard: no single refresh drains more pages than this.
+    static let maxFeedPages = 50
+
     private func runRefreshes() async {
         isLoading = true
         repeat {
@@ -157,20 +162,37 @@ public final class TraxSync {
     private func refreshOnce() async {
         let gen = generation
         guard current(gen) else { return }
-        var since = store.cursor()
+        // Transitions (and the whole feed, from a server in timestamp mode)
+        // follow `since`. It overlaps the last sync by a margin so a write that
+        // committed late isn't skipped; transitions dedupe by id and shares upsert.
+        let cursor = store.cursor()
+        var since: Int64? = cursor > 0 ? max(0, cursor - Self.sinceOverlapMs) : nil
+        var rev = store.revCursor() ?? 0
+        var loadFrom: Int64?
         var applied = false
         // Publish whatever was applied, even if a later page fails.
         defer { if applied && current(gen) { publish() } }
         do {
-            while true {
-                let page = try await transport.feed(since: since > 0 ? since : nil, limit: nil)
+            for _ in 0..<Self.maxFeedPages {
+                let page = try await transport.feed(since: since, rev: rev, loadFrom: loadFrom, limit: nil)
                 guard current(gen) else { return }   // stopped or wiped meanwhile: write nothing
                 store.applyFeedPage(page)
                 applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
-                guard page.hasMore, page.syncTs > since else { break }
-                since = page.syncTs
+                guard page.hasMore else { break }
+                if page.isRevisioned {
+                    // Revision order: keep `since` (transitions came on the first
+                    // page), follow the server's cursor, stop if it doesn't move.
+                    let next = page.rev ?? rev
+                    guard next != rev || page.loadFrom != loadFrom else { break }
+                    rev = next; loadFrom = page.loadFrom
+                } else {
+                    // Timestamp mode (an older server): page by sync time.
+                    guard page.syncTs > (since ?? 0) else { break }
+                    since = page.syncTs
+                }
             }
+            if store.deleteExpiredShares() { store.save(); applied = true }
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.

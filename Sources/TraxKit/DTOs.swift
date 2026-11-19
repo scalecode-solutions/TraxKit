@@ -58,12 +58,27 @@ public struct FeedDTO: Codable, Sendable {
     public let syncTs: Int64
     public let hasMore: Bool
     public let stoppedIds: [UUID]?
+    /// Revision mode: the cursor to keep (a middle page's last row, or the
+    /// viewer's current revision on the final page). nil or 0 from a server that
+    /// answered in timestamp mode (it doesn't know `rev`, or no share was ever
+    /// pointed at this viewer).
+    public let rev: Int64?
+    /// The cursor was older than the server's history: drop the held shares and
+    /// apply this as a full load.
+    public let reload: Bool?
+    /// While a load is paging (`hasMore`): echo this back with the next request.
+    public let loadFrom: Int64?
 
     public init(shares: [ShareDTO], transitions: [TransitionDTO]? = nil, syncTs: Int64,
-                hasMore: Bool, stoppedIds: [UUID]?) {
+                hasMore: Bool, stoppedIds: [UUID]?, rev: Int64? = nil, reload: Bool? = nil,
+                loadFrom: Int64? = nil) {
         self.shares = shares; self.transitions = transitions; self.syncTs = syncTs
         self.hasMore = hasMore; self.stoppedIds = stoppedIds
+        self.rev = rev; self.reload = reload; self.loadFrom = loadFrom
     }
+
+    /// A revision-mode answer (otherwise the timestamp path applies).
+    var isRevisioned: Bool { (rev ?? 0) > 0 || reload == true }
 }
 
 /// A saved place (home/work/custom) with a geofence radius.

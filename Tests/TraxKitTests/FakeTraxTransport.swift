@@ -63,8 +63,11 @@ actor FakeTraxTransport: TraxTransport {
 
     // MARK: TraxTransport
 
-    func feed(since: Int64?, limit: Int?) async throws -> FeedDTO {
+    /// What each feed request sent.
+    private(set) var feedRequests: [(since: Int64?, rev: Int64?, loadFrom: Int64?)] = []
+    func feed(since: Int64?, rev: Int64?, loadFrom: Int64?, limit: Int?) async throws -> FeedDTO {
         try await enter("feed")
+        feedRequests.append((since, rev, loadFrom))
         guard !feedPages.isEmpty else {
             return FeedDTO(shares: [], syncTs: since ?? 0, hasMore: false, stoppedIds: [])
         }

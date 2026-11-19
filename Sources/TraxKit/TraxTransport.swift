@@ -3,8 +3,11 @@ import Foundation
 /// The network boundary. A protocol so the sync engine + UI are testable with a
 /// fake (no server), exactly like PulseKit's `PulseTransport` seam.
 public protocol TraxTransport: Sendable {
-    // Viewer feed (who's sharing with me + where they are now).
-    func feed(since: Int64?, limit: Int?) async throws -> FeedDTO
+    // Viewer feed (who's sharing with me + where they are now). With `rev`
+    // (0 = first sync) the server answers in revision order (see `FeedDTO.rev`);
+    // `since` then bounds only the transitions. Without it, the older
+    // timestamp delta.
+    func feed(since: Int64?, rev: Int64?, loadFrom: Int64?, limit: Int?) async throws -> FeedDTO
     // Producer.
     func track(_ body: TrackBody) async throws -> TrackAckDTO
     // Directed shares.
