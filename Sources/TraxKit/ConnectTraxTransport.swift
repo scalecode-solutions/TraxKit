@@ -186,35 +186,39 @@ public struct ConnectTraxTransport: TraxTransport {
 
     // MARK: - Timeline
 
-    public func trips(since: Int64?, limit: Int?) async throws -> [TripDTO] {
+    public func trips(since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] {
         var req = Trax_V1_ListTripsRequest()
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
-    public func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+    public func visits(since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] {
         var req = Trax_V1_ListVisitsRequest()
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)
     }
 
-    public func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO] {
+    public func tripsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] {
         var req = Trax_V1_ListOwnerTripsRequest()
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listOwnerTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
-    public func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+    public func visitsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] {
         var req = Trax_V1_ListOwnerVisitsRequest()
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listOwnerVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)

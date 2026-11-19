@@ -28,12 +28,12 @@ public protocol TraxTransport: Sendable {
     func sharePlace(id: UUID, viewer: UUID) async throws
     func unsharePlace(id: UUID, viewer: UUID) async throws
     func postTransition(_ body: TransitionBody) async throws
-    // Timeline (self).
-    func trips(since: Int64?, limit: Int?) async throws -> [TripDTO]
-    func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO]
+    // Timeline (self). `since`/`before` bound the start time ([since, before)).
+    func trips(since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO]
+    func visits(since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO]
     // Owner-scoped timeline (a friend's journeys; server gates on active share).
-    func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO]
-    func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO]
+    func tripsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO]
+    func visitsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO]
     /// An owner's own enter/leave events ("read it back"; self, or exact-share friend).
     func transitionsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TransitionDTO]
 }

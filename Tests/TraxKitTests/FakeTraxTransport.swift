@@ -134,13 +134,15 @@ actor FakeTraxTransport: TraxTransport {
         try await enter("postTransition")
         postedTransitions.append(body)
     }
-    func trips(since: Int64?, limit: Int?) async throws -> [TripDTO] { try await enter("trips"); return [] }
-    func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO] { try await enter("visits"); return [] }
-    func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO] {
-        try await enter("tripsFor"); return []
+    func trips(since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] { try await enter("trips"); return [] }
+    func visits(since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] { try await enter("visits"); return [] }
+    /// The (since, before) bounds each owner timeline read asked for.
+    private(set) var timelineBounds: [(since: Int64?, before: Int64?)] = []
+    func tripsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] {
+        try await enter("tripsFor"); timelineBounds.append((since, before)); return []
     }
-    func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO] {
-        try await enter("visitsFor"); return []
+    func visitsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] {
+        try await enter("visitsFor"); timelineBounds.append((since, before)); return []
     }
     var transitionsForResult: [TransitionDTO] = []
     func setTransitionsFor(_ t: [TransitionDTO]) { transitionsForResult = t }

@@ -426,8 +426,13 @@ public final class TraxSync {
         let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
         let endMs = Int64(endOfDay.timeIntervalSince1970 * 1000)
         do {
-            let trips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
-            let visits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            // Bounded to the day on the server, so a past day isn't crowded out
+            // by everything since it. The filter stays for a server that
+            // ignores `before`.
+            let trips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, before: endMs, limit: 1000)
+                .filter { $0.startTs < endMs }
+            let visits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, before: endMs, limit: 1000)
+                .filter { $0.startTs < endMs }
             let pts = try await transport.points(ownerId: ownerID, since: sinceMs, before: endMs, limit: 2000)
             lastError = nil
             return TimelineDay(trips: trips, visits: visits, points: pts.points)
