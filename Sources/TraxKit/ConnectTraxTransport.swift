@@ -31,11 +31,19 @@ public struct ConnectTraxTransport: TraxTransport {
 
     private func value<T>(_ r: ResponseMessage<T>) throws -> T {
         if let m = r.message { return m }
-        if let e = r.error {
-            throw TraxError(error: .init(code: "\(e.code)", reason: nil,
-                                         message: e.message ?? "rpc failed"), httpStatus: nil)
-        }
+        if let e = r.error { throw Self.traxError(code: e.code, message: e.message) }
         throw TraxTransportError.network("empty rpc response")
+    }
+
+    /// A Connect error as the kit's TraxError: the wire code name ("not_found",
+    /// "unauthenticated"…), the HTTP status it travels as, and the message.
+    static func traxError(code: Code, message: String?) -> TraxError {
+        traxError(codeName: code.name, message: message)
+    }
+
+    static func traxError(codeName: String, message: String?) -> TraxError {
+        TraxError(error: .init(code: codeName, reason: nil, message: message ?? "rpc failed"),
+                  httpStatus: TraxError.httpStatus(forCode: codeName))
     }
 
     // MARK: - Feed

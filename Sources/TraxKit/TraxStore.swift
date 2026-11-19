@@ -180,11 +180,24 @@ public final class TraxStore {
     public func upsertTransition(_ dto: TransitionDTO) {
         let id = dto.id
         let fetch = FetchDescriptor<TransitionEntity>(predicate: #Predicate { $0.id == id })
-        if (try? context.fetch(fetch).first) == nil {
-            context.insert(TransitionEntity(id: dto.id, ownerId: dto.ownerId, placeId: dto.placeId,
-                                            placeName: dto.placeName, placeEmoji: dto.placeEmoji,
-                                            event: dto.event, createdAt: dto.createdAt))
+        if (try? context.fetch(fetch).first) != nil { return }
+        // The server's copy of a crossing this device recorded under a local id:
+        // adopt the server's id + time. Only a local record is ever rewritten.
+        if !dto.id.isLocalTransitionID {
+            let owner = dto.ownerId, place = dto.placeId, event = dto.event
+            let lo = dto.createdAt - TransitionDTO.sameEventWindowMs, hi = dto.createdAt + TransitionDTO.sameEventWindowMs
+            let candidates = FetchDescriptor<TransitionEntity>(predicate: #Predicate {
+                $0.ownerId == owner && $0.placeId == place && $0.event == event && $0.createdAt >= lo && $0.createdAt <= hi
+            })
+            if let local = ((try? context.fetch(candidates)) ?? []).first(where: { $0.id.isLocalTransitionID }) {
+                local.id = dto.id
+                local.createdAt = dto.createdAt
+                return
+            }
         }
+        context.insert(TransitionEntity(id: dto.id, ownerId: dto.ownerId, placeId: dto.placeId,
+                                        placeName: dto.placeName, placeEmoji: dto.placeEmoji,
+                                        event: dto.event, createdAt: dto.createdAt))
     }
 
     /// An owner's enter/leave events, newest first — what the chat bridge projects.
@@ -199,6 +212,32 @@ public final class TraxStore {
     public func save() {
         guard context.hasChanges else { return }
         try? context.save()
+        changes += 1
+    }
+
+    /// Bumped on every save that changed something (and by a wipe): the sync
+    /// layer republishes its snapshots when this moves.
+    public private(set) var changes = 0
+
+    // MARK: - Snapshots (values for the sync layer to publish)
+
+    /// Each sharer's current share pointed at me: the newest unexpired row per
+    /// owner (same rule as `incomingShare(ownerID:)`).
+    func incomingSnapshots(now: Date = Date()) -> [UUID: IncomingShareSnapshot] {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let fetch = FetchDescriptor<ShareEntity>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        var out: [UUID: IncomingShareSnapshot] = [:]
+        for e in (try? context.fetch(fetch)) ?? [] where out[e.ownerId] == nil {
+            if let exp = e.expiresAt, exp <= nowMs { continue }
+            out[e.ownerId] = IncomingShareSnapshot(e)
+        }
+        return out
+    }
+
+    /// Every place visible to me, by name (stable order).
+    func placeSnapshots() -> [PlaceSnapshot] {
+        allPlaces().map(PlaceSnapshot.init)
+            .sorted { ($0.name.lowercased(), $0.id.uuidString) < ($1.name.lowercased(), $1.id.uuidString) }
     }
 
     // MARK: - Wipe (sign-out)
@@ -217,5 +256,6 @@ public final class TraxStore {
         try? context.delete(model: TransitionEntity.self)
         try? context.delete(model: SyncCursorEntity.self)
         save()
+        changes += 1
     }
 }

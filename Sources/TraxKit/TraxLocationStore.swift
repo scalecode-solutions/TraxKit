@@ -71,15 +71,10 @@ public final class TraxLocationStore {
     }
 
     /// `partner`'s current presented location, if they're sharing with me.
+    /// Reads the published snapshot (observable), never the store: safe to call
+    /// from a view body, which re-renders when the poll changes it.
     public func summary(for partner: UUID) -> TraxLocationSummary? {
-        guard let s = store.incomingShare(ownerID: partner) else { return nil }
-        let st = s.status()
-        let coord = (s.lat != nil && s.lng != nil)
-            ? CLLocationCoordinate2D(latitude: s.lat!, longitude: s.lng!) : nil
-        return TraxLocationSummary(
-            coordinate: coord, placeName: s.placeName, atPlace: s.atPlace, precision: s.precision,
-            battery: s.batteryLevel, batteryCharging: s.batteryCharging ?? false,
-            lastUpdatedMs: s.locRecordedAt, isLive: st.isLive)
+        sync.incoming[partner]?.summary()
     }
 
     /// Both directions of the relationship in one call (what a conversation header reads).
@@ -100,7 +95,8 @@ public final class TraxLocationStore {
     /// row appear instantly. `sync.recentTransitions` is touched so the read re-runs
     /// when a fresh crossing lands.
     public func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] {
-        _ = sync.recentTransitions   // observe the buffer → re-read the store on a new crossing
+        _ = sync.revision            // observe the store → re-read it when it changes
+        _ = sync.recentTransitions   // …and the live buffer a fresh crossing lands in
         return store.transitions(ownerID: sync.currentUserID, limit: limit).map {
             TransitionDTO(id: $0.id, ownerId: $0.ownerId, placeId: $0.placeId,
                           placeName: $0.placeName, placeEmoji: $0.placeEmoji,
@@ -126,8 +122,8 @@ public final class TraxLocationStore {
     /// My custom places currently shared with `partner` (owned by me, visible to
     /// them) — what the conversation's "Places shared with X" page lists.
     public func sharedPlaces(with partner: UUID) -> [TraxSharedPlace] {
-        store.allPlaces()
-            .filter { $0.ownerId == sync.currentUserID && $0.sharedWith.contains(partner) }
+        sync.placeSnapshots
+            .filter { $0.ownerID == sync.currentUserID && $0.sharedWith.contains(partner) }
             .map { TraxSharedPlace(id: $0.id, name: $0.name, emoji: $0.emoji,
                                    latitude: $0.lat, longitude: $0.lng, radiusM: $0.radiusM) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -140,7 +136,8 @@ public final class TraxLocationStore {
     /// MainActor. Reads live SwiftData — call after `sync.loadPlaces()` for
     /// server-fresh contents.
     public func allPlaces() -> [PlaceEntity] {
-        store.allPlaces()
+        _ = sync.revision   // observe the store → re-read it when places change
+        return store.allPlaces()
     }
 
     /// Stop sharing `placeID` with `partner` (revoke the share), then refresh the
