@@ -125,7 +125,13 @@ public struct TraxHub: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { TraxSettingsView(sync: sync, onSignOut: onSignOut) } label: {
+                    NavigationLink {
+                        TraxSettingsView(engine: engine) {
+                            if let onSignOut {
+                                Section { Button("Sign Out", role: .destructive) { onSignOut() } }
+                            }
+                        }
+                    } label: {
                         Image(systemName: "gearshape").font(.system(size: 17, weight: .medium))
                     }
                 }

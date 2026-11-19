@@ -114,7 +114,10 @@ public final class TraxSync {
     /// they changed, so an idle poll re-renders nothing; `revision` moves when
     /// the store saved anything.
     func publish() {
-        if store.changes != publishedChanges {
+        // Shares are re-read every time (expiry is a function of the clock);
+        // places and people only when the store saved something.
+        let storeMoved = store.changes != publishedChanges
+        if storeMoved {
             publishedChanges = store.changes
             revision += 1
         }
@@ -123,6 +126,7 @@ public final class TraxSync {
             incoming = inc
             incomingList = inc.values.sorted { ($0.updatedAt, $0.shareID.uuidString) > ($1.updatedAt, $1.shareID.uuidString) }
         }
+        guard storeMoved else { return }
         let places = store.placeSnapshots()
         if places != placeSnapshots { placeSnapshots = places }
         let people = store.contactSnapshots()

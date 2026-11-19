@@ -27,7 +27,7 @@ public struct TraxRootView: View {
 
 /// Invisible helper: when the user's places change, re-hand the regions to the host's
 /// geofence right away (the engine's poll also refreshes them, slower).
-private struct RegionSyncer: View {
+struct RegionSyncer: View {
     let engine: TraxEngine
 
     /// The places' geometry: what the geofence cares about.
