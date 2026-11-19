@@ -15,15 +15,25 @@ public struct TraxAppearance: Sendable {
     public var shareButton: String
     public var sharingWith: String
     public var placesTogether: String
+    public var stopAllSharing: String
+    public var clearHistory: String
+    /// The footer under location access in TraxSettingsView.
+    public var accessFooter: String
 
     public init(notSharing: String = "%@ isn't sharing their location",
                 shareButton: String = "Share My Location with %@",
                 sharingWith: String = "Sharing your location",
-                placesTogether: String = "Places shared with %@") {
+                placesTogether: String = "Places shared with %@",
+                stopAllSharing: String = "Stop sharing with everyone",
+                clearHistory: String = "Clear location history",
+                accessFooter: String = "Location is only used while you share it with someone, or for arrivals at your places.") {
         self.notSharing = notSharing
         self.shareButton = shareButton
         self.sharingWith = sharingWith
         self.placesTogether = placesTogether
+        self.stopAllSharing = stopAllSharing
+        self.clearHistory = clearHistory
+        self.accessFooter = accessFooter
     }
 
     public static let standard = TraxAppearance()

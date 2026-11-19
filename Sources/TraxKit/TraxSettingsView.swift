@@ -8,6 +8,7 @@ import UIKit
 /// own sections through `extra`.
 public struct TraxSettingsView<Extra: View>: View {
     let engine: TraxEngine
+    let appearance: TraxAppearance
     let extra: Extra
 
     @State private var editing: PlaceEdit?
@@ -16,8 +17,9 @@ public struct TraxSettingsView<Extra: View>: View {
     @State private var busy = false
     @State private var message: String?
 
-    public init(engine: TraxEngine, @ViewBuilder extra: () -> Extra) {
+    public init(engine: TraxEngine, appearance: TraxAppearance = .standard, @ViewBuilder extra: () -> Extra) {
         self.engine = engine
+        self.appearance = appearance
         self.extra = extra()
     }
 
@@ -39,7 +41,7 @@ public struct TraxSettingsView<Extra: View>: View {
             } header: {
                 Text("Location access")
             } footer: {
-                Text("Location is only used while you share it with someone, or for arrivals at your places.")
+                Text(appearance.accessFooter)
             }
 
             Section {
@@ -63,10 +65,10 @@ public struct TraxSettingsView<Extra: View>: View {
             }
 
             Section {
-                Button("Stop sharing with everyone", role: .destructive) { confirmStopAll = true }
+                Button(appearance.stopAllSharing, role: .destructive) { confirmStopAll = true }
                     .disabled(!engine.isSharing || busy)
                     .accessibilityIdentifier("settings.stopAll")
-                Button("Clear location history", role: .destructive) { confirmClear = true }
+                Button(appearance.clearHistory, role: .destructive) { confirmClear = true }
                     .disabled(busy)
                     .accessibilityIdentifier("settings.clearHistory")
                 if let message {
@@ -131,5 +133,7 @@ public struct TraxSettingsView<Extra: View>: View {
 }
 
 public extension TraxSettingsView where Extra == EmptyView {
-    init(engine: TraxEngine) { self.init(engine: engine) { EmptyView() } }
+    init(engine: TraxEngine, appearance: TraxAppearance = .standard) {
+        self.init(engine: engine, appearance: appearance) { EmptyView() }
+    }
 }
