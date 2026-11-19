@@ -56,6 +56,7 @@ public struct TraxPairSettingsView: View {
                      : "Shared places show on both your maps, and \(name) gets your arrivals and departures there. Home and work always stay private.")
             }
         }
+        .traxBackdrop()
         .navigationTitle("Location")
         .navigationBarTitleDisplayMode(.inline)
     }

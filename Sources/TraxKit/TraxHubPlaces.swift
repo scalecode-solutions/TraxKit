@@ -185,6 +185,7 @@ struct PlaceEditor: View {
                     if let error { Section { Text(error).foregroundStyle(.red).font(.footnote) } }
                 }
             }
+            .traxBackdrop()
             .navigationTitle(isEdit ? "Edit place" : "New place")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

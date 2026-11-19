@@ -47,6 +47,7 @@ public struct TraxTimelineView: View {
             mapHeader.frame(height: 240)
             journeyList
         }
+        .background { TraxBackdrop() }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: dayKey) { await reload() }
@@ -144,6 +145,7 @@ public struct TraxTimelineView: View {
                     .listRowBackground(selectedJourney == item.id ? Rectangle().fill(.tint.opacity(0.12)) : nil)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)   // the backdrop shows through
         }
     }
 

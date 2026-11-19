@@ -39,6 +39,7 @@ public struct TraxWeatherDetailView: View {
                     .padding(.top, 60)
             }
         }
+        .background { TraxBackdrop() }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: regionKey) {

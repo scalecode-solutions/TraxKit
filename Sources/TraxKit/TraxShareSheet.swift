@@ -113,6 +113,7 @@ struct TraxShareSheet: View {
 
                 if let error { Section { Text(error).foregroundStyle(.red).font(.footnote) } }
             }
+            .traxBackdrop()
             .navigationTitle("Share location")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
         }

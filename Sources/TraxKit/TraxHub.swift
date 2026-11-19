@@ -263,8 +263,7 @@ public struct TraxHub: View {
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: .capsule)
-            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            .traxGlass(in: .capsule)
         }
         .disabled(true)
     }
@@ -285,8 +284,8 @@ public struct TraxHub: View {
 
     private func controlIcon(_ name: String) -> some View {
         Image(systemName: name).font(.system(size: 16, weight: .medium))
-            .frame(width: 40, height: 40).background(.ultraThinMaterial, in: .circle)
-            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            .frame(width: 40, height: 40)
+            .traxGlass(in: .circle, interactive: true)
     }
 
     // MARK: panel
@@ -327,16 +326,16 @@ public struct TraxHub: View {
         .frame(height: h, alignment: .top)
         .frame(maxWidth: .infinity)
         .background {
-            // Rounded top, but the material bleeds into the bottom safe area so it
-            // fills behind a host tab bar + the home indicator (no map showing
-            // through). Reads the inset implicitly — works for the bare home
-            // indicator (TraxLab standalone) and a host's tab bar alike.
-            UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 0,
-                                   bottomTrailingRadius: 0, topTrailingRadius: 22)
-                .fill(.regularMaterial)
+            // Liquid Glass over the map, as the sibling kits' sheets. Rounded top,
+            // but it runs into the bottom safe area so it fills behind a host
+            // tab bar and the home indicator. Reads the inset implicitly — works
+            // for the bare home indicator (TraxLab standalone) and a host's tab
+            // bar alike.
+            Color.clear
+                .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 0,
+                                                      bottomTrailingRadius: 0, topTrailingRadius: 22))
                 .ignoresSafeArea(.container, edges: .bottom)
         }
-        .shadow(color: .black.opacity(0.12), radius: 10, y: -4)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: detent)
     }
 
