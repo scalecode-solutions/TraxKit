@@ -96,7 +96,7 @@ struct TraxWeatherPin: View {
                     .padding(8).background(.thinMaterial, in: .circle)
             }
         }
-        .task(id: "\(Int(latitude * 10)),\(Int(longitude * 10))") {
+        .task(id: TraxWeatherStore.regionKey(latitude: latitude, longitude: longitude)) {
             await store.refresh(latitude: latitude, longitude: longitude)
         }
     }

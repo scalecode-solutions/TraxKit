@@ -111,7 +111,8 @@ struct TraxHubDetailContent: View {
     }
 
     private func openInMaps() {
-        let item = MKMapItem(placemark: MKPlacemark(coordinate: person.coordinate))
+        let c = person.coordinate
+        let item = MKMapItem(location: CLLocation(latitude: c.latitude, longitude: c.longitude), address: nil)
         item.name = person.name
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
