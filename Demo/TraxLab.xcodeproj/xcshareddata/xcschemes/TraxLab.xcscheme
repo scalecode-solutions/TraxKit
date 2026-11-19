@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2650"
+   LastUpgradeVersion = "1600"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      buildArchitectures = "Automatic"
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -14,7 +16,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "TLB000APPTARGET000000001"
+               BlueprintIdentifier = "4E51698D5FFD7A24BD823E2E"
                BuildableName = "TraxLab.app"
                BlueprintName = "TraxLab"
                ReferencedContainer = "container:TraxLab.xcodeproj">
@@ -27,7 +29,31 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4E51698D5FFD7A24BD823E2E"
+            BuildableName = "TraxLab.app"
+            BlueprintName = "TraxLab"
+            ReferencedContainer = "container:TraxLab.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1143CDD2BF2DD7670F57CF6E"
+               BuildableName = "TraxLabUITests.xctest"
+               BlueprintName = "TraxLabUITests"
+               ReferencedContainer = "container:TraxLab.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -43,12 +69,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "TLB000APPTARGET000000001"
+            BlueprintIdentifier = "4E51698D5FFD7A24BD823E2E"
             BuildableName = "TraxLab.app"
             BlueprintName = "TraxLab"
             ReferencedContainer = "container:TraxLab.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -56,6 +84,16 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4E51698D5FFD7A24BD823E2E"
+            BuildableName = "TraxLab.app"
+            BlueprintName = "TraxLab"
+            ReferencedContainer = "container:TraxLab.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

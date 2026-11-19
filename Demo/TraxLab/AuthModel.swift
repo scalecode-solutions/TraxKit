@@ -6,7 +6,7 @@ import MvAuth
 /// Real mvServer auth for TraxLab. Logs in via MvAuth (WebSocket), holds the
 /// token set, and hands TraxKit a token provider that auto-refreshes. Replaces
 /// the old dev-minted JWT — the access token here is a genuine mvServer JWT,
-/// exactly what mvPulse validates.
+/// exactly what mvTrax validates.
 @MainActor
 @Observable
 final class AuthModel {
@@ -23,6 +23,9 @@ final class AuthModel {
 
     private var tokens: TokenSet?
     private var client: MvAuthClient?
+    /// One refresh at a time, shared by every caller: refresh tokens rotate, so
+    /// two concurrent refreshes with the same token would revoke each other.
+    private var refreshTask: Task<TokenSet, Error>?
 
     var isLoggingIn: Bool { state == .loggingIn }
 
@@ -53,25 +56,53 @@ final class AuthModel {
     }
 
     func logOut() {
+        refreshTask?.cancel()
+        refreshTask = nil
         tokens = nil
         profile = nil
         client = nil
         state = .loggedOut
     }
 
-    /// The current access token for TraxKit, refreshed when near expiry. Returns
-    /// nil (and logs out) if the refresh token is dead — TraxKit then 401s and
-    /// the UI falls back to the login screen.
+    /// The current access token for TraxKit, refreshed when near expiry.
+    /// Concurrent callers share one refresh. Only a dead session (expired refresh
+    /// token, or the server rejecting it) logs out; a network blip keeps the
+    /// session and returns the current token while it's still valid.
     func accessToken() async -> String? {
         guard let tokens, let client else { return nil }
         guard tokens.shouldRefreshAccessToken else { return tokens.accessToken }
+        let task: Task<TokenSet, Error>
+        if let running = refreshTask {
+            task = running
+        } else {
+            let refreshToken = tokens.refreshToken
+            task = Task { try await client.refresh(refreshToken: refreshToken) }
+            refreshTask = task
+        }
         do {
-            let fresh = try await client.refresh(refreshToken: tokens.refreshToken)
+            let fresh = try await task.value
+            // Signed out, or into another account, while this was running.
+            guard self.client === client else { return nil }
+            if refreshTask == task { refreshTask = nil }
             self.tokens = fresh
             return fresh.accessToken
         } catch {
-            logOut()
-            return nil
+            guard self.client === client else { return nil }
+            if refreshTask == task { refreshTask = nil }
+            if Self.sessionIsDead(error) {
+                logOut()
+                return nil
+            }
+            return tokens.isAccessTokenExpired ? nil : tokens.accessToken
+        }
+    }
+
+    private static func sessionIsDead(_ error: Error) -> Bool {
+        guard let e = error as? MvAuthError else { return false }
+        switch e {
+        case .refreshTokenExpired: return true
+        case .serverError(let code, _): return code == 401 || code == 403
+        default: return false
         }
     }
 

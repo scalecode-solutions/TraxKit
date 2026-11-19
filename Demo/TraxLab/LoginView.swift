@@ -2,8 +2,8 @@ import SwiftUI
 
 /// TraxLab login — authenticates against mvServer via MvAuth, then hands off to
 /// the location map. Use real mvchat credentials; the same account's JWT is what
-/// mvTrax validates. Defaults to Production (api.mvchat.app + trax.mvchat.app);
-/// the picker can switch to Local for development.
+/// mvTrax validates. Defaults to Local (the development stack); the picker can
+/// switch to Production. Debug builds can skip this screen: see `DevSignIn`.
 struct LoginView: View {
     let auth: AuthModel
 
