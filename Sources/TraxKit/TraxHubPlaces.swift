@@ -27,7 +27,7 @@ struct TraxHubPlacesContent: View {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                         .frame(width: 44, height: 44).background(.tint, in: .circle)
-                    Text("Add a Place").font(.system(size: 17, weight: .semibold)).foregroundStyle(.tint)
+                    Text("Add a Place").font(.system(.body, weight: .semibold)).foregroundStyle(.tint)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10).contentShape(Rectangle())
@@ -43,12 +43,12 @@ struct TraxHubPlacesContent: View {
                             .frame(width: 44, height: 44).background(.tint.opacity(0.12), in: .circle)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 5) {
-                                Text(p.name).font(.system(size: 17, weight: .semibold))
+                                Text(p.name).font(.system(.body, weight: .semibold))
                                 if isOurSpot(p) {
                                     Image(systemName: "person.2.fill").font(.system(size: 11)).foregroundStyle(.tint)
                                 }
                             }
-                            Text(subtitle(p)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(subtitle(p)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                         }
                         Spacer()
                         Image(systemName: "chevron.forward").font(.footnote).foregroundStyle(.tertiary)

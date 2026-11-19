@@ -51,9 +51,9 @@ struct TraxHubDetailContent: View {
             HStack(spacing: 14) {
                 TraxAvatar(id: person.ownerId, name: person.name, avatarBase64: person.avatar, size: 62)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(person.displayName).font(.system(size: 22, weight: .bold))
+                    Text(person.displayName).font(.system(.title2, weight: .bold))
                     Text([label, person.secondary].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2)
+                        .font(.system(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 TraxBatteryPill(battery: person.battery)
@@ -61,7 +61,7 @@ struct TraxHubDetailContent: View {
             if !person.isSelf, let d = distanceText {
                 HStack(spacing: 6) {
                     Image(systemName: "ruler").font(.caption)
-                    Text(d).font(.system(size: 14))
+                    Text(d).font(.system(.subheadline))
                     Spacer()
                 }
                 .foregroundStyle(.secondary)
@@ -101,7 +101,7 @@ struct TraxHubDetailContent: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: symbol).font(.system(size: 14, weight: .medium))
-                Text(title).font(.system(size: 14, weight: .semibold))
+                Text(title).font(.system(.subheadline, weight: .semibold))
             }
             .foregroundStyle(disabled ? Color.secondary : Color.primary)
             .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -123,15 +123,15 @@ struct TraxHubDetailContent: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("RECENT ACTIVITY")
             if transitions.isEmpty {
-                Text("Nothing recent.").font(.system(size: 14)).foregroundStyle(.secondary)
+                Text("Nothing recent.").font(.system(.subheadline)).foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
             } else {
                 ForEach(transitions) { t in
                     HStack(spacing: 12) {
                         Circle().fill(.secondary.opacity(0.4)).frame(width: 8, height: 8)
                         Text("\(t.event == "enter" ? "Arrived at" : "Left") \(t.placeEmoji.map { "\($0) " } ?? "")\(t.placeName)")
-                            .font(.system(size: 14, weight: .medium)).lineLimit(1)
-                        Text("· \(Self.relative(t.createdAt))").font(.system(size: 13)).foregroundStyle(.secondary)
+                            .font(.system(.subheadline, weight: .medium)).lineLimit(2)
+                        Text("· \(Self.relative(t.createdAt))").font(.system(.footnote)).foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                     }
                     .padding(.vertical, 5).padding(.horizontal, 20)
@@ -179,16 +179,16 @@ struct TraxHubDetailContent: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("PLACES")
             if myPlaces.isEmpty {
-                Text("No saved places.").font(.system(size: 14)).foregroundStyle(.secondary)
+                Text("No saved places.").font(.system(.subheadline)).foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(myPlaces) { p in
                         HStack(spacing: 10) {
-                            Text(p.emoji ?? "📍").font(.system(size: 22)).frame(width: 34, height: 34)
+                            Text(p.emoji ?? "📍").font(.system(.title2)).frame(width: 34, height: 34)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                                Text("\(p.radiusM) m").font(.system(size: 11)).foregroundStyle(.secondary)
+                                Text(p.name).font(.system(.subheadline, weight: .semibold)).lineLimit(2)
+                                Text("\(p.radiusM) m").font(.system(.caption2)).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 0)
                         }
@@ -209,7 +209,7 @@ struct TraxHubDetailContent: View {
     }
 
     private func sectionTitle(_ s: String) -> some View {
-        Text(s).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+        Text(s).font(.system(.caption, weight: .semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 20)
     }
 

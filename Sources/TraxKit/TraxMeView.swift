@@ -68,8 +68,8 @@ struct TraxMeView: View {
                 TraxPresenceDot(live: true)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("Me").font(.system(size: 22, weight: .bold))
-                Text(label).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2)
+                Text("Me").font(.system(.title2, weight: .bold))
+                Text(label).font(.system(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 6) {
@@ -127,7 +127,7 @@ struct TraxMeView: View {
             TraxAvatar(id: share.viewerId, name: viewerName(share.viewerId),
                        avatarBase64: contact(share.viewerId)?.avatar, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(viewerName(share.viewerId)).font(.system(size: 15, weight: .medium))
+                Text(viewerName(share.viewerId)).font(.system(.subheadline, weight: .medium))
                 Text(expiryText(share)).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -154,7 +154,7 @@ struct TraxMeView: View {
         let p = SharePrecision(rawValue: raw) ?? .exact
         return HStack(spacing: 3) {
             Image(systemName: precisionIcon(p)).font(.system(size: 10))
-            Text(p.label).font(.system(size: 12, weight: .medium))
+            Text(p.label).font(.system(.caption, weight: .medium))
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(.tint.opacity(0.12), in: .capsule)
@@ -229,15 +229,15 @@ struct TraxMeView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("TODAY")
             if activity.isEmpty {
-                Text("No movement logged yet today.").font(.system(size: 14)).foregroundStyle(.secondary)
+                Text("No movement logged yet today.").font(.system(.subheadline)).foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
             } else {
                 ForEach(activity) { a in
                     HStack(spacing: 12) {
                         Image(systemName: a.icon).font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 18)
-                        Text(a.text).font(.system(size: 14, weight: .medium)).lineLimit(1)
+                        Text(a.text).font(.system(.subheadline, weight: .medium)).lineLimit(2)
                         Spacer(minLength: 0)
-                        Text(a.rel).font(.system(size: 13)).foregroundStyle(.secondary)
+                        Text(a.rel).font(.system(.footnote)).foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 5).padding(.horizontal, 20)
                 }
@@ -254,15 +254,15 @@ struct TraxMeView: View {
             // Only this person's own places: the empty state and the grid agree.
             let owned = places.filter { $0.ownerID == person.ownerId }
             if owned.isEmpty {
-                Text("No saved places.").font(.system(size: 14)).foregroundStyle(.secondary).padding(.horizontal, 20)
+                Text("No saved places.").font(.system(.subheadline)).foregroundStyle(.secondary).padding(.horizontal, 20)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(owned) { p in
                         HStack(spacing: 10) {
-                            Text(p.emoji ?? "📍").font(.system(size: 22)).frame(width: 34, height: 34)
+                            Text(p.emoji ?? "📍").font(.system(.title2)).frame(width: 34, height: 34)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                                Text("\(p.radiusM) m").font(.system(size: 11)).foregroundStyle(.secondary)
+                                Text(p.name).font(.system(.subheadline, weight: .semibold)).lineLimit(2)
+                                Text("\(p.radiusM) m").font(.system(.caption2)).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 0)
                         }
@@ -283,7 +283,7 @@ struct TraxMeView: View {
     }
 
     private func sectionTitle(_ s: String) -> some View {
-        Text(s).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 20)
+        Text(s).font(.system(.caption, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 20)
     }
 
     // MARK: formatting

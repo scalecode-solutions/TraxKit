@@ -36,6 +36,8 @@ public struct TraxHub: View {
     @State private var mapStyle: TraxMapStyle = .standard
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var framedEveryone = false
+    /// The panel's rows grow with the text size (fixed heights clipped them).
+    @ScaledMetric(relativeTo: .body) private var metricScale: CGFloat = 1
     @State private var detailID: String?           // nil = hub; else a person id
     @State private var weatherPage: TraxWeatherPage = .mine
     @State private var followSpan = MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
@@ -141,7 +143,7 @@ public struct TraxHub: View {
             .toolbar {
                 if !embedded {
                     ToolbarItem(placement: .topBarLeading) {
-                        Text("Trax").font(.system(size: 26, weight: .bold))
+                        Text("Trax").font(.system(.title, weight: .bold))
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -257,26 +259,11 @@ public struct TraxHub: View {
 
     private var floatingControls: some View {
         HStack(spacing: 10) {
-            checkInButton
             Spacer()
             layersMenu
             recenterButton
         }
         .padding(.horizontal, 16)
-    }
-
-    // Stubbed visible until check-in is reworked properly (see discussion).
-    private var checkInButton: some View {
-        Button {} label: {
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.seal.fill").font(.system(size: 14, weight: .medium))
-                Text("Check in").font(.system(size: 14, weight: .semibold))
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .traxGlass(in: .capsule)
-        }
-        .disabled(true)
     }
 
     private var layersMenu: some View {
@@ -409,7 +396,7 @@ public struct TraxHub: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
-            Text(detailSubject?.displayName ?? "Details").font(.system(size: 20, weight: .bold)).lineLimit(1)
+            Text(detailSubject?.displayName ?? "Details").font(.system(.title3, weight: .bold)).lineLimit(2)
             Spacer()
         }
     }
@@ -476,18 +463,18 @@ public struct TraxHub: View {
         }
     }
     private func panelHeight(available: CGFloat) -> CGFloat {
-        let base = detent.height(available: available, rowCount: rowCount)
-        return max(HubDetent.peek.height(available: available, rowCount: rowCount),
-                   min(HubDetent.full.height(available: available, rowCount: rowCount), base - dragOffset))
+        let base = detent.height(available: available, rowCount: rowCount, scale: metricScale)
+        return max(HubDetent.peek.height(available: available, rowCount: rowCount, scale: metricScale),
+                   min(HubDetent.full.height(available: available, rowCount: rowCount, scale: metricScale), base - dragOffset))
     }
     private func dragGesture(available: CGFloat) -> some Gesture {
         DragGesture()
             .onChanged { dragOffset = $0.translation.height }
             .onEnded { value in
-                let base = detent.height(available: available, rowCount: rowCount)
+                let base = detent.height(available: available, rowCount: rowCount, scale: metricScale)
                 let predicted = base - value.predictedEndTranslation.height
                 let closest = HubDetent.allCases
-                    .map { ($0, $0.height(available: available, rowCount: rowCount)) }
+                    .map { ($0, $0.height(available: available, rowCount: rowCount, scale: metricScale)) }
                     .min { abs($0.1 - predicted) < abs($1.1 - predicted) }!
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     detent = closest.0; dragOffset = 0
@@ -543,12 +530,17 @@ enum HubDetent: CaseIterable {
     var accessibilityValue: String {
         switch self { case .peek: "Collapsed"; case .mid: "Half"; case .full: "Expanded" }
     }
-    func height(available: CGFloat, rowCount: Int) -> CGFloat {
-        switch self {
-        case .peek: HubMetrics.header + 8
-        case .mid:  HubMetrics.header + 2 * HubMetrics.row
-        case .full: min(HubMetrics.header + CGFloat(rowCount) * HubMetrics.row, available)
+    /// `scale` grows the pill row and the person rows with Dynamic Type (the
+    /// handle is chrome and stays put); no height exceeds the space there is.
+    func height(available: CGFloat, rowCount: Int, scale: CGFloat = 1) -> CGFloat {
+        let header = HubMetrics.handle + HubMetrics.pillRow * scale
+        let row = HubMetrics.row * scale
+        let h: CGFloat = switch self {
+        case .peek: header + 8
+        case .mid:  header + 2 * row
+        case .full: header + CGFloat(rowCount) * row
         }
+        return min(h, available)
     }
 }
 
