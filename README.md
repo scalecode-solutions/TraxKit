@@ -78,9 +78,15 @@ current (a heartbeat every 90 s); only an exact share can show as
 ## Never notifies
 
 TraxKit posts no notifications and starts no Live Activities. Arrivals and
-departures are ambient: they appear when someone looks. The only system UI the
-kit can cause is the location permission prompt, and only when the user acts (starts
-sharing, or taps "Allow location access").
+departures are ambient: they appear when someone looks. What iOS itself may
+show because of location use is the OS's, not a notification from the kit:
+
+- the location and motion permission prompts, only when the user acts (starts
+  sharing, or taps "Allow location access");
+- the background location indicator while an exact share runs in the
+  background;
+- iOS's periodic reminder that an app with "Always" access has been using
+  location in the background.
 
 ## Demo
 
