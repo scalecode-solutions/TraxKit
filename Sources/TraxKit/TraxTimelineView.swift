@@ -88,12 +88,12 @@ public struct TraxTimelineView: View {
             // Whole day faint; selected trip bold on top.
             if dayCoords.count > 1 {
                 MapPolyline(coordinates: dayCoords)
-                    .stroke(Color.accentColor.opacity(selectedJourney == nil ? 0.7 : 0.25),
+                    .stroke(.tint.opacity(selectedJourney == nil ? 0.7 : 0.25),
                             style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
             if journeyCoords.count > 1 {
                 MapPolyline(coordinates: journeyCoords)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                    .stroke(.tint, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
             }
             ForEach(data.visits) { v in
                 Marker(v.placeName ?? "Stop", monogram: Text(v.placeEmoji ?? "📍"),
@@ -141,7 +141,7 @@ public struct TraxTimelineView: View {
             List(items, selection: $selectedJourney) { item in
                 Button { select(item) } label: { JourneyRow(item: item) }
                     .buttonStyle(.plain)
-                    .listRowBackground(selectedJourney == item.id ? Color.accentColor.opacity(0.12) : nil)
+                    .listRowBackground(selectedJourney == item.id ? Rectangle().fill(.tint.opacity(0.12)) : nil)
             }
             .listStyle(.plain)
         }
@@ -179,7 +179,7 @@ struct JourneyRow: View {
     var body: some View {
         switch item {
         case .visit(let v):
-            row(emoji: v.placeEmoji ?? "📍", color: .accentColor,
+            row(emoji: v.placeEmoji ?? "📍", color: AnyShapeStyle(.tint),
                 title: v.placeName ?? "Stop",
                 detail: "\(timeRange(v.startTs, v.endTs)) · \(durationText(v.durationSeconds))")
         case .trip(let t):
@@ -199,7 +199,7 @@ struct JourneyRow: View {
         }
     }
 
-    private func row(emoji: String, color: Color, title: String, detail: String) -> some View {
+    private func row(emoji: String, color: AnyShapeStyle, title: String, detail: String) -> some View {
         HStack(spacing: 12) {
             Text(emoji).font(.title3).frame(width: 32, height: 32).background(color.opacity(0.12), in: .circle)
             VStack(alignment: .leading, spacing: 1) {

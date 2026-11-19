@@ -207,8 +207,8 @@ public struct TraxHub: View {
         case .people:
             ForEach(peers.filter { $0.precision == "approx" && $0.fuzzRadiusM != nil }) { p in
                 MapCircle(center: p.coordinate, radius: p.fuzzRadiusM ?? 900)
-                    .foregroundStyle(Color.accentColor.opacity(0.15))
-                    .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
+                    .foregroundStyle(.tint.opacity(0.15))
+                    .stroke(.tint.opacity(0.5), lineWidth: 1)
             }
             ForEach(people) { p in
                 Annotation(p.displayName, coordinate: p.coordinate) {
@@ -379,9 +379,9 @@ public struct TraxHub: View {
             ForEach(HubPill.allCases) { p in
                 Button { withAnimation(.easeInOut) { pill = p } } label: {
                     Image(systemName: p.symbol).font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(pill == p ? .white : Color.accentColor)
+                        .foregroundStyle(pill == p ? AnyShapeStyle(.white) : AnyShapeStyle(.tint))
                         .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .background(pill == p ? Color.accentColor : Color.accentColor.opacity(0.12), in: .capsule)
+                        .background(pill == p ? AnyShapeStyle(.tint) : AnyShapeStyle(.tint.opacity(0.12)), in: .capsule)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(p.title)

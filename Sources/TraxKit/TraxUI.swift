@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 // Shared UI primitives for TraxKit — the glass pane and the member avatar.
-// Themeable: colors come from the host's `.accentColor` (the host's brand color),
+// Themeable: the accent is the host's tint (the `.tint` style, which a host sets
+// with `.tint(_:)`), not the app's AccentColor asset (`Color.accentColor`),
 // no hard-coded brand colors, so the SPM matches whatever app embeds it. Mirrors
 // PulseKit's PulseUI conventions.
 
@@ -45,11 +46,11 @@ public struct TraxAvatar: View {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.18))
+                    .fill(.tint.opacity(0.18))
                     .overlay(
                         Text(initials)
                             .font(.system(size: size * 0.4, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(.tint)
                     )
             }
         }
