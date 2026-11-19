@@ -60,6 +60,9 @@ public final class TraxGeocoder {
         self.maxBackoff = maxBackoff
     }
 
+    /// Exact labels are looked up at the center of a ~110 m cell, not the
+    /// person's point: the street can be off by a block at a cell's edge, the
+    /// price of never sending Apple an exact coordinate.
     static func step(exact: Bool) -> Double { exact ? 0.001 : 0.01 }   // ~110 m / ~1.1 km
     static func cell(_ v: Double, exact: Bool) -> Int { Int((v / step(exact: exact)).rounded(.down)) }
     static func center(_ v: Double, exact: Bool) -> Double {

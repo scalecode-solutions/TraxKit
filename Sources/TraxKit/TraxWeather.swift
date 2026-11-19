@@ -212,8 +212,10 @@ public final class TraxWeatherStore {
     private let now: () -> Date
     /// Refetch after this long.
     static let ttl: TimeInterval = 15 * 60
-    /// Show a stale value for up to this long; older ones are dropped.
-    static let maxStale: TimeInterval = 6 * 3600
+    /// Show a stale value for up to this long; older ones are dropped. Online
+    /// a refetch replaces it within a TTL, so this only matters offline, where
+    /// weather from hours ago would mislead more than no badge.
+    static let maxStale: TimeInterval = 2 * 3600
     /// The bucket size in degrees (~11 km).
     static let bucket = 0.1
 
