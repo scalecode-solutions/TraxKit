@@ -119,7 +119,7 @@ public final class TraxEngine {
     public func setForeground(_ on: Bool) {
         let cameBack = on && !foreground
         foreground = on
-        if pollTask != nil { pushDemand() }   // background → significant-change only (see TrackingDemandPolicy)
+        if pollTask != nil { pushDemand() }   // the tier can change with the app state (see TrackingDemandPolicy)
         if cameBack { wake() }
     }
 
@@ -221,7 +221,7 @@ public final class TraxEngine {
 
     private func pushDemand() {
         host.setDesiredTracking(TrackingDemandPolicy.demand(
-            sharing: sync.isSharing, auth: host.authorization, foreground: foreground))
+            precisions: sync.livePrecisions, auth: host.authorization, foreground: foreground))
     }
 
     /// React to share start/stop immediately → update the host's tracking demand.

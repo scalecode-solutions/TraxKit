@@ -315,13 +315,20 @@ public final class TraxSync {
     /// the server, as before, instead of all being refused.
     private var sendsRecordedAt = true
 
+    /// The precisions of my live shares (empty when I'm not sharing). A
+    /// precision this kit doesn't know reads as approx, the quietest that shares.
+    var livePrecisions: Set<TraxPrecision> {
+        guard isSharing else { return [] }
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        return Set(outgoing.filter { ($0.expiresAt ?? .max) > nowMs }
+            .map { TraxPrecision(rawValue: $0.precision) ?? .approx })
+    }
+
     /// The kit's tracking demand for the host, derived purely from share state —
-    /// never leaks *who* is watching. The host decides how to satisfy it.
-    /// (No active-watcher granularity yet, so any live share → `.continuous`.)
-    /// Assumes foreground + permission; the engine asks TrackingDemandPolicy
-    /// with the real auth and app state.
+    /// never leaks *who* is watching. Assumes foreground + permission; the
+    /// engine asks TrackingDemandPolicy with the real auth and app state.
     public var trackingDemand: TraxTrackingDemand {
-        TrackingDemandPolicy.demand(sharing: isSharing, auth: .whenInUse, foreground: true)
+        TrackingDemandPolicy.demand(precisions: livePrecisions, auth: .whenInUse, foreground: true)
     }
 
     /// Ingest one enriched fix from the host and post it to mvTrax — but ONLY while
