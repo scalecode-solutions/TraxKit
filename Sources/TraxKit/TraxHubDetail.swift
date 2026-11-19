@@ -87,12 +87,12 @@ struct TraxHubDetailContent: View {
         HStack(spacing: 10) {
             if person.isSelf {
                 actionButton("Share", "person.crop.circle.badge.plus", disabled: false, action: onShare)
-                actionButton("Check In", "checkmark.seal.fill", disabled: true) {}   // stubbed until it works right
             } else {
                 actionButton("Directions", "arrow.triangle.turn.up.right.diamond.fill", disabled: false) {
                     openInMaps()
                 }
-                actionButton("Message", "bubble.left.fill", disabled: true) {}        // no messaging in standalone
+                // No disabled stubs (Check In, Message): a control that can't do
+                // anything isn't shown.
             }
         }
     }
@@ -143,7 +143,19 @@ struct TraxHubDetailContent: View {
 
     // MARK: weather mini
 
-    private var weatherMini: some View {
+    /// Shown once there's weather to show; until then nothing (not an empty
+    /// row), while the fetch still runs so it appears when it lands.
+    @ViewBuilder private var weatherMini: some View {
+        let lat = person.coordinate.latitude, lng = person.coordinate.longitude
+        if weather.cached(latitude: lat, longitude: lng) != nil {
+            weatherRow
+        } else {
+            Color.clear.frame(height: 0)
+                .task(id: "\(lat),\(lng)") { await weather.refresh(latitude: lat, longitude: lng) }
+        }
+    }
+
+    private var weatherRow: some View {
         Button(action: onWeather) {
             HStack(spacing: 12) {
                 TraxWeatherBadge(store: weather, latitude: person.coordinate.latitude,

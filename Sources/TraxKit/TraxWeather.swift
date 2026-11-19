@@ -245,6 +245,12 @@ public final class TraxWeatherStore {
         return e.w
     }
 
+    /// Whether current conditions for the region are being fetched (a row says
+    /// "Loading" rather than "unavailable").
+    public func isLoading(latitude: Double, longitude: Double) -> Bool {
+        inflight.contains(key(latitude, longitude))
+    }
+
     /// Fetch if missing or older than `ttl` (call from .task). Coalesces
     /// concurrent requests for the same region.
     public func refresh(latitude: Double, longitude: Double) async {
@@ -314,6 +320,10 @@ public struct TraxWeatherBadge: View {
                     Text(w.tempText)
                     if showCondition { Text(w.condition).foregroundStyle(.secondary) }
                 }
+            } else if showCondition {
+                // Where the badge is the row's content, say why it's empty.
+                Text(store.isLoading(latitude: latitude, longitude: longitude) ? "Loading weather…" : "Weather unavailable")
+                    .foregroundStyle(.secondary)
             }
         }
         .task(id: TraxWeatherStore.regionKey(latitude: latitude, longitude: longitude)) {
