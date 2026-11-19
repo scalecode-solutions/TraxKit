@@ -45,13 +45,17 @@ public struct TraxAvatar: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                // Like CalendarKit's CalAvatar: initials on the host's tint.
+                // Initials on a wash of the host's tint. The text is .primary,
+                // not white: the kit can't know the host's tint (it can't be
+                // resolved to a colour), and white on a light tint, or on a
+                // mid one in dark mode, misses AA. Primary on a 28% wash
+                // clears 4.5:1 for any tint in both schemes (ContrastTests).
                 Text(Self.initials(name))
                     .font(.system(size: size * 0.4, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .minimumScaleFactor(0.5)   // a fixed-size disc: the only place text may shrink
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.tint)
+                    .background(.tint.opacity(Self.washOpacity))
             }
         }
         .frame(width: size, height: size)
@@ -60,6 +64,9 @@ public struct TraxAvatar: View {
         // first render replaces the initials.
         .task(id: AvatarKey(id: id, base64: avatarBase64)) { image = TraxAvatarCache.image(id: id, base64: avatarBase64) }
     }
+
+    /// The tint wash behind initials (ContrastTests pins it).
+    static let washOpacity = 0.28
 
     /// First and last name's initials ("Ada Byron King" → "AK", a middle name
     /// doesn't count); one name gives one letter; none gives "?".
