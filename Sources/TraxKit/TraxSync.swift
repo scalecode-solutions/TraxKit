@@ -57,6 +57,8 @@ public final class TraxSync {
         pollFailureStreaks = [:]
         lastError = nil
         lastPostedAt = nil
+        pendingTrack = nil
+        lastTrackAck = nil
         publish()
     }
 
@@ -85,10 +87,12 @@ public final class TraxSync {
         if streak >= 2 { lastError = describe(error) }
     }
 
-    /// One good poll read: reset its streak and clear the banner.
+    /// One good poll read: reset its streak, and clear the banner unless another
+    /// read is still failing persistently (one healthy read mustn't hide another
+    /// one's breakage).
     private func pollSucceeded(_ key: String) {
         pollFailureStreaks[key] = 0
-        lastError = nil
+        if pollFailureStreaks.values.allSatisfy({ $0 < 2 }) { lastError = nil }
     }
 
     /// The SwiftData container backing this sync's store. Exposed so pushed screens
@@ -236,7 +240,16 @@ public final class TraxSync {
         try await transport.track(body)
     }
 
+    /// When a fix was last posted SUCCESSFULLY (the throttle counts from here,
+    /// so a failed post doesn't spend it).
     private var lastPostedAt: Date?
+    /// The newest fix not yet delivered (latest wins; older unsent fixes are
+    /// superseded, not queued).
+    private var pendingTrack: TrackBody?
+    private var trackInFlight = false
+    /// The server's answer to the last delivered fix (its `shares` count says
+    /// whether anyone is still receiving my location).
+    private(set) var lastTrackAck: TrackAckDTO?
 
     /// The kit's tracking demand for the host, derived purely from share state —
     /// never leaks *who* is watching. The host decides how to satisfy it.
@@ -246,16 +259,45 @@ public final class TraxSync {
     /// Ingest one enriched fix from the host and post it to mvTrax — but ONLY while
     /// I'm sharing, throttled. This is the producer-collapse: the host owns the
     /// device + the cadence tier; the kit just gates on sharing + throttles uploads.
+    /// A failed post keeps the fix pending: the next fix (or poll tick) sends the
+    /// newest one.
     public func ingestFix(_ fix: TraxFix, minInterval: TimeInterval = 5) {
         guard !isWiped, !outgoing.isEmpty else { return }            // not sharing → nothing to post
         if let last = lastPostedAt, Date().timeIntervalSince(last) < minInterval { return }
-        lastPostedAt = Date()
-        let body = TrackBody(
+        pendingTrack = TrackBody(
             lat: fix.lat, lng: fix.lng, accuracy: fix.horizontalAccuracy,
             altitude: fix.altitude, speed: fix.speed, heading: fix.course,
             motion: fix.motion, batteryLevel: fix.batteryLevel, batteryCharging: fix.batteryCharging,
             clientTs: Int64(fix.timestamp.timeIntervalSince1970 * 1000))
-        Task { try? await track(body) }
+        flushPendingTrack()
+    }
+
+    /// Deliver the pending fix, if any and nothing is already in flight. Called
+    /// by `ingestFix` and by the poll (so a fix whose post failed still goes out
+    /// when no new fix arrives).
+    func flushPendingTrack() {
+        guard !trackInFlight, pendingTrack != nil, current(generation) else { return }
+        trackInFlight = true
+        let gen = generation
+        Task {
+            defer { self.trackInFlight = false }
+            while let body = self.pendingTrack, self.current(gen) {
+                self.pendingTrack = nil
+                do {
+                    let ack = try await self.transport.track(body)
+                    guard self.current(gen) else { return }
+                    self.lastPostedAt = Date()
+                    self.lastTrackAck = ack
+                } catch {
+                    // Keep it for the next attempt unless a newer fix already
+                    // replaced it, or retrying can't help.
+                    if self.pendingTrack == nil, isRetryable(error), self.current(gen) {
+                        self.pendingTrack = body
+                    }
+                    return
+                }
+            }
+        }
     }
 
     // MARK: - Places (the user's own)
@@ -382,17 +424,30 @@ public final class TraxSync {
     /// the host has to merge separately (which won't reliably refresh the UI).
     public func backfillTransitions(ownerID: UUID, limit: Int? = nil) async {
         let trs = await transitions(ownerID: ownerID, since: nil, limit: limit)
-        if !trs.isEmpty { mergeTransitions(trs) }
+        guard !trs.isEmpty, !isWiped else { return }
+        if ownerID == currentUserID {
+            for t in trs { store.upsertTransition(t) }   // server copies replace my local ones
+            store.save()
+            publish()
+        }
+        mergeTransitions(trs)
     }
 
     // MARK: - helpers
 
-    /// Merge new transitions (newest first, dedup by id, cap 50).
+    /// Merge new transitions (newest first, dedup, cap 50). A copy of one of my
+    /// own crossings (recorded locally the moment it happened, under a local id)
+    /// replaces the local one when it comes back from the server under its own
+    /// id: same place, same event, within `TransitionDTO.sameEventWindowMs`.
     private func mergeTransitions(_ incoming: [TransitionDTO]) {
-        var seen = Set(recentTransitions.map(\.id))
         var merged = recentTransitions
-        for t in incoming where !seen.contains(t.id) {
-            merged.append(t); seen.insert(t.id)
+        for t in incoming {
+            if merged.contains(where: { $0.id == t.id }) { continue }
+            if let i = merged.firstIndex(where: { $0.isSameEvent(as: t) }) {
+                merged[i] = t
+            } else {
+                merged.append(t)
+            }
         }
         recentTransitions = Array(merged.sorted { $0.createdAt > $1.createdAt }.prefix(50))
     }

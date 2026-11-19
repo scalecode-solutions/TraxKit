@@ -125,6 +125,7 @@ public final class TraxEngine {
     }
 
     private func pollTick(_ tick: Int) async {
+        sync.flushPendingTrack()   // a fix whose post failed goes out even if no new fix arrives
         await sync.refresh()
         await sync.refreshOutgoing()
         if tick % 6 == 0 { await sync.loadPlaces(); pushRegions() }   // ~2 min: refresh places + regions

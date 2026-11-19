@@ -103,6 +103,17 @@ public struct TransitionDTO: Codable, Sendable, Identifiable, Hashable {
     public let placeEmoji: String?
     public let event: String     // enter | leave
     public let createdAt: Int64
+
+    /// Two records of one crossing (a local one and the server's) are at most
+    /// this far apart: the device stamps its copy when it detects the crossing,
+    /// the server when the post arrives.
+    static let sameEventWindowMs: Int64 = 120_000
+
+    /// Same crossing under a different id (the server's copy of a local record).
+    func isSameEvent(as other: TransitionDTO) -> Bool {
+        id != other.id && ownerId == other.ownerId && placeId == other.placeId && event == other.event
+            && abs(createdAt - other.createdAt) <= Self.sameEventWindowMs
+    }
 }
 
 // --- timeline (trips + visits) ---
