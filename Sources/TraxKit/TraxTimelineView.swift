@@ -116,9 +116,11 @@ public struct TraxTimelineView: View {
     private func select(_ item: TimelineItem) {
         selectedJourney = item.id
         switch item {
-        case .trip:
-            // journeyCoords recomputes from the new selection; frame it next runloop.
-            DispatchQueue.main.async { frame(journeyCoords) }
+        case .trip(let t):
+            // The trip's own points, computed here rather than read back from
+            // journeyCoords on the next runloop.
+            frame(zip(prepared.times, prepared.coords)
+                .filter { $0.0 >= t.startTs && $0.0 <= t.endTs }.map(\.1))
         case .visit(let v):
             withAnimation(.easeInOut) {
                 camera = .region(MKCoordinateRegion(
@@ -151,11 +153,17 @@ public struct TraxTimelineView: View {
 
     private func reload() async {
         loading = true
-        data = await sync.timeline(ownerID: owner, day: day)
+        let fetched = await sync.timeline(ownerID: owner, day: day)
+        // A cancelled load (the day changed, the view re-appeared) comes back
+        // empty: dropping it keeps it from wiping the trail and leaving the
+        // camera un-framed, the "continent and no trail" a screenshot caught.
+        guard !Task.isCancelled else { return }
+        data = fetched
         prepared = PreparedDay(data)
         loading = false
         selectedJourney = nil
-        frame(dayCoords)
+        // Frame the trail, or the day's stops when there's no trail.
+        frame(dayCoords.isEmpty ? data.visits.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) } : dayCoords)
     }
 }
 
