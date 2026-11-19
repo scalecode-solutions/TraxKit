@@ -31,8 +31,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		02E98FE38A5C392B7CF7E903 /* traxlab */ = {isa = PBXFileReference; lastKnownFileType = folder; name = traxlab; path = ..; sourceTree = SOURCE_ROOT; };
 		3CFF8DD889A3F0E993BC8906 /* LabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabSession.swift; sourceTree = "<group>"; };
+		3E64C53D0F63187BC3782297 /* TraxKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TraxKit; path = ..; sourceTree = SOURCE_ROOT; };
 		3FD538A3968FAD8AF2E3F594 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
 		5C6EF7E106567B4C695159E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69EBF4A05CAA266BD7E9E5F1 /* LabChatsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabChatsScreen.swift; sourceTree = "<group>"; };
@@ -61,7 +61,7 @@
 		7AA38129FB76D7EC4CE1049B /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				02E98FE38A5C392B7CF7E903 /* traxlab */,
+				3E64C53D0F63187BC3782297 /* TraxKit */,
 			);
 			name = Packages;
 			sourceTree = "<group>";

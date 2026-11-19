@@ -1,6 +1,8 @@
 # TraxLab — the standalone harness for TraxKit. Generate the project with:
 #   cd Demo && xcodegen generate
 # The generated TraxLab.xcodeproj is committed; edit this file, not the project.
+# Generate from a checkout whose folder is named TraxKit: XcodeGen names the
+# local package reference after that folder, and any other name churns the project.
 name: TraxLab
 options:
   bundleIdPrefix: dev.scalecode

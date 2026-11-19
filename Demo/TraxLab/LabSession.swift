@@ -33,8 +33,8 @@ final class LabSession {
     }
 
     /// The host went away without a sign-out (the session expired and the app
-    /// fell back to the login screen): stop, but keep the store. Without this
-    /// the poll loop, which holds the engine while it runs, would outlive the host.
+    /// fell back to the login screen): stop, but keep the store. The engine's
+    /// work stops with the host instead of depending on when the engine is freed.
     func stop() {
         guard isRunning else { return }
         isRunning = false
