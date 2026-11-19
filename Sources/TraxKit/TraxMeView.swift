@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import MapKit
 import CoreLocation
 
@@ -15,15 +14,15 @@ struct TraxMeView: View {
     let onWeather: () -> Void
     let onHistory: () -> Void
 
-    @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
-    @Query private var places: [PlaceEntity]
+    private var contacts: [TraxContact] { sync.contacts }
+    private var places: [PlaceSnapshot] { sync.placeSnapshots }
 
     @State private var activity: [ActivityItem] = []
     @State private var preview: PreviewTarget?
     @State private var stoppingAll = false
 
     private var coord: CLLocationCoordinate2D { person.coordinate }
-    private func contact(_ id: UUID) -> ContactEntity? { contacts.first { $0.id == id } }
+    private func contact(_ id: UUID) -> TraxContact? { contacts.first { $0.id == id } }
     private func viewerName(_ id: UUID) -> String {
         let n = contact(id)?.name
         return (n?.isEmpty == false ? n! : "Member \(id.uuidString.prefix(8))")
@@ -232,7 +231,7 @@ struct TraxMeView: View {
                 Text("No saved places.").font(.system(size: 14)).foregroundStyle(.secondary).padding(.horizontal, 20)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(places.filter { $0.ownerId == person.ownerId }) { p in
+                    ForEach(places.filter { $0.ownerID == person.ownerId }) { p in
                         HStack(spacing: 10) {
                             Text(p.emoji ?? "📍").font(.system(size: 22)).frame(width: 34, height: 34)
                             VStack(alignment: .leading, spacing: 2) {
@@ -309,7 +308,7 @@ struct SelfSharePreview: View {
     let viewerName: String
     let precision: String
     let coord: CLLocationCoordinate2D
-    let places: [PlaceEntity]
+    let places: [PlaceSnapshot]
     let meId: UUID
     let meName: String
     let meAvatar: String?

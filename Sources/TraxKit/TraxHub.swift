@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import MapKit
 import CoreLocation
 
@@ -25,9 +24,10 @@ public struct TraxHub: View {
         self.engine = engine; self.embedded = embedded; self.onSignOut = onSignOut
     }
 
-    @Query(sort: \ShareEntity.updatedAt, order: .reverse) private var incoming: [ShareEntity]
-    @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
-    @Query private var places: [PlaceEntity]
+    // Published values from the engine (no SwiftData reads in a body).
+    private var incoming: [IncomingShareSnapshot] { sync.incomingList }
+    private var contacts: [TraxContact] { sync.contacts }
+    private var places: [PlaceSnapshot] { sync.placeSnapshots }
 
     @State private var pill: HubPill = .people
     @State private var detent: HubDetent = .mid
@@ -44,7 +44,7 @@ public struct TraxHub: View {
 
     // MARK: derived people
 
-    private var contactsByID: [UUID: ContactEntity] {
+    private var contactsByID: [UUID: TraxContact] {
         Dictionary(contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
     }
     private func name(for id: UUID) -> String {
@@ -54,7 +54,7 @@ public struct TraxHub: View {
     }
     private func avatar(for id: UUID) -> String? { contactsByID[id]?.avatar }
 
-    private func placeMatch(_ coord: CLLocationCoordinate2D) -> PlaceEntity? {
+    private func placeMatch(_ coord: CLLocationCoordinate2D) -> PlaceSnapshot? {
         places.first { p in
             CLLocation(latitude: p.lat, longitude: p.lng)
                 .distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude)) <= Double(p.radiusM)
@@ -78,8 +78,8 @@ public struct TraxHub: View {
         incoming.compactMap { s in
             guard let lat = s.lat, let lng = s.lng else { return nil }
             let st = s.status()
-            return TraxPerson(id: s.id.uuidString, ownerId: s.ownerId, name: name(for: s.ownerId),
-                              avatar: avatar(for: s.ownerId),
+            return TraxPerson(id: s.shareID.uuidString, ownerId: s.ownerID, name: name(for: s.ownerID),
+                              avatar: avatar(for: s.ownerID),
                               coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
                               isSelf: false, precision: s.precision, status: st, battery: st.battery,
                               placeName: s.placeName, placeEmoji: s.placeEmoji,

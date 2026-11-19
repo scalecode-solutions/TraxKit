@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import CoreLocation
 import MapKit
 
@@ -8,18 +7,18 @@ import MapKit
 // sheet lives here too (moved from the old standalone Places tab).
 
 struct TraxHubPlacesContent: View {
-    let places: [PlaceEntity]
+    let places: [PlaceSnapshot]
     let currentUserID: UUID
     let nameFor: (UUID) -> String
     let onAdd: () -> Void
-    let onEdit: (PlaceEntity) -> Void
+    let onEdit: (PlaceSnapshot) -> Void
 
-    private func subtitle(_ p: PlaceEntity) -> String {
-        if p.ownerId != currentUserID { return "Shared by \(nameFor(p.ownerId))" }
+    private func subtitle(_ p: PlaceSnapshot) -> String {
+        if p.ownerID != currentUserID { return "Shared by \(nameFor(p.ownerID))" }
         if p.isShared { return "Shared with " + p.sharedWith.map(nameFor).joined(separator: ", ") }
         return "\(p.type.capitalized) · \(p.radiusM) m"
     }
-    private func isOurSpot(_ p: PlaceEntity) -> Bool { p.ownerId != currentUserID || p.isShared }
+    private func isOurSpot(_ p: PlaceSnapshot) -> Bool { p.ownerID != currentUserID || p.isShared }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,7 +69,7 @@ struct TraxHubPlacesContent: View {
 /// Add-new vs edit-existing, the editor sheet's mode.
 enum PlaceEdit: Identifiable {
     case new
-    case existing(PlaceEntity)
+    case existing(PlaceSnapshot)
     var id: String { switch self { case .new: "new"; case .existing(let p): p.id.uuidString } }
 }
 
@@ -125,7 +124,7 @@ struct PlaceEditor: View {
     private var sync: TraxSync { engine.sync }
     private var currentUserID: UUID { engine.sync.currentUserID }
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \ContactEntity.name) private var contacts: [ContactEntity]
+    private var contacts: [TraxContact] { engine.sync.contacts }
 
     @State private var name = ""
     @State private var type = "custom"
@@ -386,7 +385,7 @@ struct PlaceEditor: View {
             coord = c
             storedCoord = c
             camera = .region(MKCoordinateRegion(center: c, latitudinalMeters: 600, longitudinalMeters: 600))
-            placeID = p.id; ownerID = p.ownerId; members = p.sharedWith
+            placeID = p.id; ownerID = p.ownerID; members = p.sharedWith
             Task { await reverseGeocode(c) }
         } else {
             engine.requestLocationAccess()

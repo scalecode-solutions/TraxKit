@@ -31,6 +31,7 @@ actor FakeTraxTransport: TraxTransport {
     func setOutgoing(_ s: [ShareDTO]) { outgoing = s }
     func setPlaces(_ p: [PlaceDTO]) { placeList = p }
     func setContacts(_ c: [TraxContact]) { contactList = c }
+    func setMe(_ c: TraxContact) { meContact = c }
     func setTrackAck(_ a: TrackAckDTO) { trackAck = a }
     func fail(_ call: String, with error: Error, times: Int = 1) {
         failures[call, default: []].append(contentsOf: Array(repeating: error, count: times))

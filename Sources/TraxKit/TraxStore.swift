@@ -269,6 +269,12 @@ public final class TraxStore {
         return out
     }
 
+    /// Everyone in the people directory (friends and me), by name.
+    func contactSnapshots() -> [TraxContact] {
+        let fetch = FetchDescriptor<ContactEntity>(sortBy: [SortDescriptor(\.name), SortDescriptor(\.id)])
+        return ((try? context.fetch(fetch)) ?? []).map { TraxContact(id: $0.id, name: $0.name, avatar: $0.avatar) }
+    }
+
     /// Every place visible to me, by name (stable order).
     func placeSnapshots() -> [PlaceSnapshot] {
         allPlaces().map(PlaceSnapshot.init)
