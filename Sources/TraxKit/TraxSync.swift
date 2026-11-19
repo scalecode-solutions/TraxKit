@@ -31,10 +31,41 @@ public final class TraxSync {
     private(set) var placeSnapshots: [PlaceSnapshot] = []
     private var publishedChanges = -1
 
+    /// Bumped by `invalidate()` (stop) and `wipe()`: work that started before
+    /// must not write after. Every read that awaits the network checks it.
+    private(set) var generation = 0
+    /// Set by `wipe()`, cleared by `resume()`: after a sign-out wipe nothing in
+    /// flight or newly triggered may write to the store until the next start.
+    private(set) var isWiped = false
+    /// The refresh running now; concurrent callers wait for it.
+    private var inflight: Task<Void, Never>?
+    private var refreshAgain = false
+
+    /// Drop the results of everything in flight (the engine stopped).
+    func invalidate() { generation += 1 }
+
+    /// Writes are allowed again (the engine started).
+    func resume() { isWiped = false }
+
+    /// Sign-out: discard in-flight work, empty the store and the in-memory state.
+    func wipe() {
+        invalidate()
+        isWiped = true
+        store.wipeAll()
+        outgoing = []
+        recentTransitions = []
+        pollFailureStreaks = [:]
+        lastError = nil
+        lastPostedAt = nil
+        publish()
+    }
+
+    /// True while results started at `gen` may still be written.
+    private func current(_ gen: Int) -> Bool { gen == generation && !isWiped }
+
     public let currentUserID: UUID
     private let transport: any TraxTransport
     private let store: TraxStore
-    private var isRefreshing = false
 
     /// Consecutive-failure streaks for the POLL-driven reads (feed / outgoing /
     /// contacts / places), keyed per read so one bad tick of a single call
@@ -94,15 +125,36 @@ public final class TraxSync {
     /// Pull everything new since the persisted cursor, draining pages until the
     /// server reports no more (or the cursor stops advancing).
     public func refresh() async {
-        if isRefreshing { return }
-        isRefreshing = true
-        isLoading = true
-        defer { isRefreshing = false; isLoading = false }
+        // One refresh at a time. A caller arriving mid-refresh waits for it, plus
+        // one more pass (its own request may postdate what the running one read).
+        if let running = inflight {
+            refreshAgain = true
+            await running.value
+            return
+        }
+        let task = Task { await self.runRefreshes() }
+        inflight = task
+        await task.value
+        inflight = nil
+    }
 
+    private func runRefreshes() async {
+        isLoading = true
+        defer { isLoading = false }
+        repeat {
+            refreshAgain = false
+            await refreshOnce()
+        } while refreshAgain && !Task.isCancelled
+    }
+
+    private func refreshOnce() async {
+        let gen = generation
+        guard current(gen) else { return }
         var since = store.cursor()
         do {
             while true {
                 let page = try await transport.feed(since: since > 0 ? since : nil, limit: nil)
+                guard current(gen) else { return }   // stopped or wiped meanwhile: write nothing
                 store.applyFeedPage(page)
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
                 guard page.hasMore, page.syncTs > since else { break }
@@ -113,18 +165,22 @@ public final class TraxSync {
         } catch is CancellationError {
             // Benign — the next refresh covers it.
         } catch {
-            reportPollFailure("feed", error)
+            if current(gen) { reportPollFailure("feed", error) }
         }
     }
 
     /// Refresh my outgoing shares (the "who I'm sharing with" list + stop controls).
     public func refreshOutgoing() async {
+        let gen = generation
+        guard current(gen) else { return }
         do {
-            outgoing = try await transport.shares().outgoing
+            let fresh = try await transport.shares().outgoing
+            guard current(gen) else { return }
+            if fresh != outgoing { outgoing = fresh }
             pollSucceeded("outgoing")
         } catch is CancellationError {
         } catch {
-            reportPollFailure("outgoing", error)
+            if current(gen) { reportPollFailure("outgoing", error) }
         }
     }
 
@@ -136,15 +192,19 @@ public final class TraxSync {
     /// Fetch the people directory (friends + my own entry) into the local store
     /// for labelling sharers and populating the share picker.
     public func loadContacts() async {
+        let gen = generation
+        guard current(gen) else { return }
         do {
             let contacts = try await transport.contacts()
+            let me = try? await transport.me()
+            guard current(gen) else { return }
             store.upsertContacts(contacts)
-            if let me = try? await transport.me() { store.upsertContact(me); store.save() }
+            if let me { store.upsertContact(me); store.save() }
             publish()
             pollSucceeded("contacts")
         } catch is CancellationError {
         } catch {
-            reportPollFailure("contacts", error)
+            if current(gen) { reportPollFailure("contacts", error) }
         }
     }
 
@@ -187,7 +247,7 @@ public final class TraxSync {
     /// I'm sharing, throttled. This is the producer-collapse: the host owns the
     /// device + the cadence tier; the kit just gates on sharing + throttles uploads.
     public func ingestFix(_ fix: TraxFix, minInterval: TimeInterval = 5) {
-        guard !outgoing.isEmpty else { return }                       // not sharing → nothing to post
+        guard !isWiped, !outgoing.isEmpty else { return }            // not sharing → nothing to post
         if let last = lastPostedAt, Date().timeIntervalSince(last) < minInterval { return }
         lastPostedAt = Date()
         let body = TrackBody(
@@ -203,14 +263,17 @@ public final class TraxSync {
     /// Pull the user's places into the local store (drives the Places tab + the
     /// geofence monitor).
     public func loadPlaces() async {
+        let gen = generation
+        guard current(gen) else { return }
         do {
             let places = try await transport.places()
+            guard current(gen) else { return }
             store.replacePlaces(places)
             publish()
             pollSucceeded("places")
         } catch is CancellationError {
         } catch {
-            reportPollFailure("places", error)
+            if current(gen) { reportPollFailure("places", error) }
         }
     }
 
@@ -262,7 +325,7 @@ public final class TraxSync {
     /// resolving the place from my local set — so the owner sees their own arrival
     /// without waiting on (or ever receiving) a feed echo.
     private func recordOwnTransition(placeID: UUID, event: String) {
-        guard let place = store.allPlaces().first(where: { $0.id == placeID }) else { return }
+        guard !isWiped, let place = store.allPlaces().first(where: { $0.id == placeID }) else { return }
         let dto = TransitionDTO(
             id: UUID(), ownerId: currentUserID, placeId: placeID,
             placeName: place.name, placeEmoji: place.emoji, event: event,

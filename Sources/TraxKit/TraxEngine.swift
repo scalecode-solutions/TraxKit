@@ -25,15 +25,27 @@ public final class TraxEngine {
     private var fixTask: Task<Void, Never>?
     private var transitionTask: Task<Void, Never>?
 
-    public init(config: TraxConfig, host: any TraxLocationHost) {
-        let store = TraxStore(userID: config.currentUserID, appGroup: config.appGroup,
-                              directory: config.storeDirectory)
+    public convenience init(config: TraxConfig, host: any TraxLocationHost) {
+        self.init(config: config, host: host, transport: config.transport,
+                  store: TraxStore(userID: config.currentUserID, appGroup: config.appGroup,
+                                   directory: config.storeDirectory))
+    }
+
+    /// The seam tests use: any transport, any store.
+    init(config: TraxConfig, host: any TraxLocationHost, transport: any TraxTransport, store: TraxStore) {
         self.store = store
         self.host = host
-        self.sync = TraxSync(config: config, store: store)
+        self.sync = TraxSync(transport: transport, store: store, currentUserID: config.currentUserID)
         self.bridge = TraxLocationStore(sync: sync, store: store)
         self.weather = TraxWeatherStore(provider: config.weatherProvider ?? WeatherKitProvider())
         self.geocoder = TraxGeocoder()
+    }
+
+    /// A host that drops its engine without calling `stop()` doesn't leak it:
+    /// the tasks below never hold the engine between steps, so it can deinit,
+    /// and deinit ends them.
+    isolated deinit {
+        pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
     }
 
     // MARK: - Location-facing API (replaces TraxSelfState / TraxPermissions)
@@ -48,26 +60,42 @@ public final class TraxEngine {
 
     public func start() {
         guard pollTask == nil else { return }
+        sync.resume()
         // host device fixes → the observable self-fix + the share-gated, throttled poster.
+        // Each task re-takes `self` per step, so it never keeps the engine alive.
         currentFix = host.currentFix
+        let fixes = host.fixStream()
         fixTask = Task { [weak self] in
-            guard let self else { return }
-            for await fix in self.host.fixStream() {
+            for await fix in fixes {
+                guard let self else { return }
                 self.currentFix = fix
                 self.sync.ingestFix(fix)
             }
         }
         // host geofence crossings → record + post + fan out.
+        let crossings = host.transitionStream()
         transitionTask = Task { [weak self] in
-            guard let self else { return }
-            for await t in self.host.transitionStream() {
+            for await t in crossings {
+                guard let self else { return }
                 await self.sync.postTransition(placeID: t.placeID, event: t.event.rawValue)
             }
         }
-        pollTask = Task { [weak self] in await self?.poll() }
+        pollTask = Task { [weak self] in
+            await self?.pollFirst()
+            var tick = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(20))
+                guard !Task.isCancelled, let self else { return }
+                tick += 1
+                await self.pollTick(tick)
+            }
+        }
     }
 
+    /// Stop polling and posting. Work already in flight finishes without
+    /// writing anything (the sync layer drops results from before the stop).
     public func stop() {
+        sync.invalidate()
         pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
         pollTask = nil; fixTask = nil; transitionTask = nil
         host.setDesiredTracking(.off)
@@ -75,16 +103,18 @@ public final class TraxEngine {
     }
 
     /// Sign-out wipe: clear all persisted Trax data (shares, contacts, places,
-    /// transitions, cursor) through the live store context — the SwiftData-
-    /// sanctioned way (see `TraxStore.wipeAll`). Call BEFORE `stop()`, while the
-    /// container is still open; leaves an empty, valid store for the next session.
+    /// transitions, cursor) and the in-memory state through the live store
+    /// context — the SwiftData-sanctioned way (see `TraxStore.wipeAll`). Call it
+    /// while the container is still open (before dropping the engine). Anything
+    /// in flight when it runs is discarded rather than written back, and nothing
+    /// is written again until the next `start()`.
     public func wipeStore() {
-        store.wipeAll()
+        sync.wipe()
     }
 
     // MARK: - Poll + seam push
 
-    private func poll() async {
+    private func pollFirst() async {
         await sync.loadContacts()
         await sync.loadPlaces()
         await sync.refresh()
@@ -92,16 +122,13 @@ public final class TraxEngine {
         pushRegions()
         pushDemand()
         observeOutgoing()
-        var tick = 0
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(20))
-            if Task.isCancelled { break }
-            await sync.refresh()
-            await sync.refreshOutgoing()
-            tick += 1
-            if tick % 6 == 0 { await sync.loadPlaces(); pushRegions() }   // ~2 min: refresh places + regions
-            pushDemand()
-        }
+    }
+
+    private func pollTick(_ tick: Int) async {
+        await sync.refresh()
+        await sync.refreshOutgoing()
+        if tick % 6 == 0 { await sync.loadPlaces(); pushRegions() }   // ~2 min: refresh places + regions
+        pushDemand()
     }
 
     /// Re-hand the kit's place-regions to the host's geofence (its rolling-20 merges
