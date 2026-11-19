@@ -1,0 +1,78 @@
+# TraxLab — the standalone harness for TraxKit. Generate the project with:
+#   cd Demo && xcodegen generate
+# The generated TraxLab.xcodeproj is committed; edit this file, not the project.
+name: TraxLab
+options:
+  bundleIdPrefix: dev.scalecode
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  TraxKit:
+    path: ..
+  MvAuth-iOS:
+    url: https://github.com/scalecode-solutions/MvAuth-iOS.git
+    branch: main
+settings:
+  base:
+    DEVELOPMENT_TEAM: YBFJUNLFT6
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+targets:
+  TraxLab:
+    type: application
+    platform: iOS
+    sources:
+      - TraxLab
+    dependencies:
+      - package: TraxKit
+      - package: MvAuth-iOS
+        product: MvAuth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.scalecode.TraxLab
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: TraxLab.entitlements
+        # The generated plist merges into this one, which carries the keys that
+        # have no INFOPLIST_KEY_ setting (background location).
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: TraxLab-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Trax Lab
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "TraxLab keeps sharing your location with the people you choose, even in the background."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "TraxLab shows where the people sharing with you are, and shares your location with the people you choose."
+        INFOPLIST_KEY_NSMotionUsageDescription: "Motion activity tunes how often TraxLab updates your location, saving battery, and shows whether you're walking or driving."
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SUPPORTS_MACCATALYST: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+  TraxLabUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - TraxLabUITests
+    dependencies:
+      - target: TraxLab
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.scalecode.TraxLabUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: TraxLab
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  TraxLab:
+    build:
+      targets:
+        TraxLab: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TraxLabUITests

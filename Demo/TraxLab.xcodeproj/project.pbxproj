@@ -3,142 +3,251 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 90;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		TLB000MVAUTHBUILD000001 /* MvAuth in Frameworks */ = {isa = PBXBuildFile; productRef = TLB000MVAUTHPRODDEP00001 /* MvAuth */; };
-		TLB000PKITBUILDFILE00001 /* TraxKit in Frameworks */ = {isa = PBXBuildFile; productRef = TLB000PKITPRODUCTDEP01 /* TraxKit */; };
+		29249BB68DC894630FD4A1E7 /* LabChatsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EBF4A05CAA266BD7E9E5F1 /* LabChatsScreen.swift */; };
+		29D5967BC7D465A5B71DE567 /* MvAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C110FE01DFE92E47CE0711DB /* MvAuth */; };
+		32901060072E8A9C330ED41B /* TraxLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96428C69D5DC0A10F132D91 /* TraxLabApp.swift */; };
+		64B4A2625CD7092056A99D8F /* Lab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9526436F83634D0CFE37ACD /* Lab.swift */; };
+		7EAFD591F693048DDC3B1274 /* LabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CFF8DD889A3F0E993BC8906 /* LabSession.swift */; };
+		826646EC1195C5575746C60A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5C6EF7E106567B4C695159E3 /* Assets.xcassets */; };
+		97A62CF0F9C3F3123B09A1D8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADEBF2A1642B52FB25D98D05 /* ContentView.swift */; };
+		ADE8E1849EA6D10318EFC5AE /* TraxKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9CD89D7D61502A3A211498D4 /* TraxKit */; };
+		AE0E68E996D48C3295AD3D1D /* TraxLabUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06D2FEAE618232FF2820D15 /* TraxLabUITests.swift */; };
+		BE5C91A70598B511DAC1E935 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD6453535309F9AADCE700BA /* LoginView.swift */; };
+		DD147EEE163CD796AAACCEAE /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD538A3968FAD8AF2E3F594 /* AuthModel.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		4F3F9A23D0C9B690EED9C3FF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C186EE9E1349DF0B9C02DFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4E51698D5FFD7A24BD823E2E;
+			remoteInfo = TraxLab;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
-		TLB000APPPRODUCT00000001 /* TraxLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TraxLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		02E98FE38A5C392B7CF7E903 /* traxlab */ = {isa = PBXFileReference; lastKnownFileType = folder; name = traxlab; path = ..; sourceTree = SOURCE_ROOT; };
+		3CFF8DD889A3F0E993BC8906 /* LabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabSession.swift; sourceTree = "<group>"; };
+		3FD538A3968FAD8AF2E3F594 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
+		5C6EF7E106567B4C695159E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		69EBF4A05CAA266BD7E9E5F1 /* LabChatsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabChatsScreen.swift; sourceTree = "<group>"; };
+		ADEBF2A1642B52FB25D98D05 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B9526436F83634D0CFE37ACD /* Lab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lab.swift; sourceTree = "<group>"; };
+		B971C57ADB84FED28E6B60ED /* TraxLabUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TraxLabUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD6453535309F9AADCE700BA /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		D06D2FEAE618232FF2820D15 /* TraxLabUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraxLabUITests.swift; sourceTree = "<group>"; };
+		D96428C69D5DC0A10F132D91 /* TraxLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraxLabApp.swift; sourceTree = "<group>"; };
+		DC46422D5CA60E7E642CAD94 /* TraxLab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TraxLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		TLB000SOURCEROOTGROUP001 /* TraxLab */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TraxLab;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		TLB000FRAMEWORKSPHASE001 /* Frameworks */ = {
+		E2207D56E1015D5AF82658FA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
-				TLB000PKITBUILDFILE00001 /* TraxKit in Frameworks */,
-				TLB000MVAUTHBUILD000001 /* MvAuth in Frameworks */,
+				ADE8E1849EA6D10318EFC5AE /* TraxKit in Frameworks */,
+				29D5967BC7D465A5B71DE567 /* MvAuth in Frameworks */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		TLB000MAINGROUP000000001 = {
+		7AA38129FB76D7EC4CE1049B /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				TLB000SOURCEROOTGROUP001 /* TraxLab */,
-				TLB000PRODGROUP000000001 /* Products */,
+				02E98FE38A5C392B7CF7E903 /* traxlab */,
 			);
+			name = Packages;
 			sourceTree = "<group>";
 		};
-		TLB000PRODGROUP000000001 /* Products */ = {
+		B352BF0B240D1AC27355110E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				TLB000APPPRODUCT00000001 /* TraxLab.app */,
+				DC46422D5CA60E7E642CAD94 /* TraxLab.app */,
+				B971C57ADB84FED28E6B60ED /* TraxLabUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D78ADE4BE7644290F0A7BDB3 /* TraxLab */ = {
+			isa = PBXGroup;
+			children = (
+				5C6EF7E106567B4C695159E3 /* Assets.xcassets */,
+				3FD538A3968FAD8AF2E3F594 /* AuthModel.swift */,
+				ADEBF2A1642B52FB25D98D05 /* ContentView.swift */,
+				B9526436F83634D0CFE37ACD /* Lab.swift */,
+				69EBF4A05CAA266BD7E9E5F1 /* LabChatsScreen.swift */,
+				3CFF8DD889A3F0E993BC8906 /* LabSession.swift */,
+				CD6453535309F9AADCE700BA /* LoginView.swift */,
+				D96428C69D5DC0A10F132D91 /* TraxLabApp.swift */,
+			);
+			path = TraxLab;
+			sourceTree = "<group>";
+		};
+		E13784A62A13D1691B87783B /* TraxLabUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D06D2FEAE618232FF2820D15 /* TraxLabUITests.swift */,
+			);
+			path = TraxLabUITests;
+			sourceTree = "<group>";
+		};
+		ECF1D3F4CF43B08669A69F6B = {
+			isa = PBXGroup;
+			children = (
+				7AA38129FB76D7EC4CE1049B /* Packages */,
+				D78ADE4BE7644290F0A7BDB3 /* TraxLab */,
+				E13784A62A13D1691B87783B /* TraxLabUITests */,
+				B352BF0B240D1AC27355110E /* Products */,
+			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		TLB000APPTARGET000000001 /* TraxLab */ = {
+		1143CDD2BF2DD7670F57CF6E /* TraxLabUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = TLB000APPCONFLIST0000001 /* Build configuration list for PBXNativeTarget "TraxLab" */;
+			buildConfigurationList = 8B31616938A0959B8A638F46 /* Build configuration list for PBXNativeTarget "TraxLabUITests" */;
 			buildPhases = (
-				TLB000SOURCESPHASE000001 /* Sources */,
-				TLB000FRAMEWORKSPHASE001 /* Frameworks */,
-				TLB000RESOURCESPHASE0001 /* Resources */,
+				FE75E8EE7D2EA024848A0BF6 /* Sources */,
 			);
 			buildRules = (
 			);
-			fileSystemSynchronizedGroups = (
-				TLB000SOURCEROOTGROUP001 /* TraxLab */,
+			dependencies = (
+				B26F65E91E2BA6355BFDFFD6 /* PBXTargetDependency */,
+			);
+			name = TraxLabUITests;
+			packageProductDependencies = (
+			);
+			productName = TraxLabUITests;
+			productReference = B971C57ADB84FED28E6B60ED /* TraxLabUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		4E51698D5FFD7A24BD823E2E /* TraxLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B3FAF053CB3A6675143A72BB /* Build configuration list for PBXNativeTarget "TraxLab" */;
+			buildPhases = (
+				860CA046F8AC4AB61AF3345C /* Sources */,
+				374B4D90CD18C14E1B3B16C4 /* Resources */,
+				E2207D56E1015D5AF82658FA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
 			);
 			name = TraxLab;
 			packageProductDependencies = (
-				TLB000PKITPRODUCTDEP01 /* TraxKit */,
-				TLB000MVAUTHPRODDEP00001 /* MvAuth */,
+				9CD89D7D61502A3A211498D4 /* TraxKit */,
+				C110FE01DFE92E47CE0711DB /* MvAuth */,
 			);
 			productName = TraxLab;
-			productReference = TLB000APPPRODUCT00000001 /* TraxLab.app */;
+			productReference = DC46422D5CA60E7E642CAD94 /* TraxLab.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		TLB000PROJECT00000000001 /* Project object */ = {
+		4C186EE9E1349DF0B9C02DFA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2650;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					TLB000APPTARGET000000001 = {
-						CreatedOnToolsVersion = 26.4.1;
+					1143CDD2BF2DD7670F57CF6E = {
+						DevelopmentTeam = YBFJUNLFT6;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 4E51698D5FFD7A24BD823E2E;
+					};
+					4E51698D5FFD7A24BD823E2E = {
+						DevelopmentTeam = YBFJUNLFT6;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = TLB000PROJCONFLIST000001 /* Build configuration list for PBXProject "TraxLab" */;
+			buildConfigurationList = 8E6CA3A5607D0D7CC0D6948B /* Build configuration list for PBXProject "TraxLab" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 			);
-			mainGroup = TLB000MAINGROUP000000001;
+			mainGroup = ECF1D3F4CF43B08669A69F6B;
+			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */,
-				TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */,
+				5BCBBB6D8456973B98AFF4A1 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */,
+				360F879FDFEFB7C910C8641E /* XCLocalSwiftPackageReference ".." */,
 			);
-			preferredProjectObjectVersion = 90;
-			productRefGroup = TLB000PRODGROUP000000001 /* Products */;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B352BF0B240D1AC27355110E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				TLB000APPTARGET000000001 /* TraxLab */,
+				4E51698D5FFD7A24BD823E2E /* TraxLab */,
+				1143CDD2BF2DD7670F57CF6E /* TraxLabUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		TLB000RESOURCESPHASE0001 /* Resources */ = {
+		374B4D90CD18C14E1B3B16C4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
+				826646EC1195C5575746C60A /* Assets.xcassets in Resources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		TLB000SOURCESPHASE000001 /* Sources */ = {
+		860CA046F8AC4AB61AF3345C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
+				DD147EEE163CD796AAACCEAE /* AuthModel.swift in Sources */,
+				97A62CF0F9C3F3123B09A1D8 /* ContentView.swift in Sources */,
+				64B4A2625CD7092056A99D8F /* Lab.swift in Sources */,
+				29249BB68DC894630FD4A1E7 /* LabChatsScreen.swift in Sources */,
+				7EAFD591F693048DDC3B1274 /* LabSession.swift in Sources */,
+				BE5C91A70598B511DAC1E935 /* LoginView.swift in Sources */,
+				32901060072E8A9C330ED41B /* TraxLabApp.swift in Sources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE75E8EE7D2EA024848A0BF6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE0E68E996D48C3295AD3D1D /* TraxLabUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B26F65E91E2BA6355BFDFFD6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4E51698D5FFD7A24BD823E2E /* TraxLab */;
+			targetProxy = 4F3F9A23D0C9B690EED9C3FF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		TLB000APPDEBUGCONFIG0001 /* Debug configuration for PBXNativeTarget "TraxLab" */ = {
+		81A6966824DF7D571BBEECCC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = TraxLab.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "TraxLab-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
@@ -149,72 +258,37 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLab;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		TLB000APPRELEASECONFIG01 /* Release configuration for PBXNativeTarget "TraxLab" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = TraxLab.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "TraxLab-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity tunes how often TraxLab updates your location, saving battery, and shows whether you're walking or driving.";
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLab;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		TLB000PROJDEBUGCONFIG001 /* Debug configuration for PBXProject "TraxLab" */ = {
+		A16F802B8A9BA792BC309DF5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -222,10 +296,12 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
@@ -233,43 +309,50 @@
 				DEVELOPMENT_TEAM = YBFJUNLFT6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
 					"$(inherited)",
+					"DEBUG=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
-		TLB000PROJRELEASECONFG01 /* Release configuration for PBXProject "TraxLab" */ = {
+		BDEB9679D4BC872602393AC8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -277,10 +360,12 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
@@ -288,54 +373,134 @@
 				DEVELOPMENT_TEAM = YBFJUNLFT6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		D4AA8582540E4EF97FE3E236 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TraxLab.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "TraxLab-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Trax Lab";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "TraxLab keeps sharing your location with the people you choose, even in the background.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TraxLab shows where the people sharing with you are, and shares your location with the people you choose.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Motion activity tunes how often TraxLab updates your location, saving battery, and shows whether you're walking or driving.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLab;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E980C5EF454787A2ACF00F69 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLabUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TraxLab;
+			};
+			name = Debug;
+		};
+		FB8FF5CE74A1EF622FE57223 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.TraxLabUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TraxLab;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		TLB000APPCONFLIST0000001 /* Build configuration list for PBXNativeTarget "TraxLab" */ = {
+		8B31616938A0959B8A638F46 /* Build configuration list for PBXNativeTarget "TraxLabUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				TLB000APPDEBUGCONFIG0001 /* Debug configuration for PBXNativeTarget "TraxLab" */,
-				TLB000APPRELEASECONFIG01 /* Release configuration for PBXNativeTarget "TraxLab" */,
+				E980C5EF454787A2ACF00F69 /* Debug */,
+				FB8FF5CE74A1EF622FE57223 /* Release */,
 			);
-			defaultConfigurationName = Release;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
-		TLB000PROJCONFLIST000001 /* Build configuration list for PBXProject "TraxLab" */ = {
+		8E6CA3A5607D0D7CC0D6948B /* Build configuration list for PBXProject "TraxLab" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				TLB000PROJDEBUGCONFIG001 /* Debug configuration for PBXProject "TraxLab" */,
-				TLB000PROJRELEASECONFG01 /* Release configuration for PBXProject "TraxLab" */,
+				A16F802B8A9BA792BC309DF5 /* Debug */,
+				BDEB9679D4BC872602393AC8 /* Release */,
 			);
-			defaultConfigurationName = Release;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B3FAF053CB3A6675143A72BB /* Build configuration list for PBXNativeTarget "TraxLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81A6966824DF7D571BBEECCC /* Debug */,
+				D4AA8582540E4EF97FE3E236 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */ = {
+		360F879FDFEFB7C910C8641E /* XCLocalSwiftPackageReference ".." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */ = {
+		5BCBBB6D8456973B98AFF4A1 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/scalecode-solutions/MvAuth-iOS.git";
 			requirement = {
@@ -346,17 +511,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		TLB000MVAUTHPRODDEP00001 /* MvAuth */ = {
+		9CD89D7D61502A3A211498D4 /* TraxKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = TLB000MVAUTHLOCALPKG001 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */;
-			productName = MvAuth;
-		};
-		TLB000PKITPRODUCTDEP01 /* TraxKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = TLB000LOCALPKGREF0000001 /* XCLocalSwiftPackageReference ".." */;
 			productName = TraxKit;
+		};
+		C110FE01DFE92E47CE0711DB /* MvAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5BCBBB6D8456973B98AFF4A1 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */;
+			productName = MvAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = TLB000PROJECT00000000001 /* Project object */;
+	rootObject = 4C186EE9E1349DF0B9C02DFA /* Project object */;
 }
