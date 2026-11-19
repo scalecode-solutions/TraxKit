@@ -144,6 +144,8 @@ struct PlaceEditor: View {
     @State private var camera: MapCameraPosition = .automatic
     @State private var search = AddressSearchModel()
     @State private var address: String?            // reverse-geocoded label for the pinned spot
+    @State private var addressCoord: CLLocationCoordinate2D?   // the spot `address` describes
+    @State private var storedCoord: CLLocationCoordinate2D?    // an existing place's saved spot
     @FocusState private var queryFocused: Bool
 
     private let geocoder = CLGeocoder()
@@ -279,13 +281,19 @@ struct PlaceEditor: View {
         .padding(12)
     }
 
+    /// The label for where the pin is now (not a spot it has left).
+    private var pinnedAddress: String? {
+        guard let address, let at = addressCoord, let c = coord, Self.sameSpot(at, c) else { return nil }
+        return address
+    }
+
     private var addressRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "mappin.and.ellipse").foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text(address ?? "Drag the map to set the spot")
+                Text(pinnedAddress ?? "Drag the map to set the spot")
                     .font(.subheadline)
-                    .foregroundStyle(address == nil ? .secondary : .primary)
+                    .foregroundStyle(pinnedAddress == nil ? .secondary : .primary)
                 if let c = coord {
                     Text(String(format: "%.5f, %.5f", c.latitude, c.longitude))
                         .font(.caption2).foregroundStyle(.tertiary)
@@ -312,11 +320,30 @@ struct PlaceEditor: View {
 
     private func reverseGeocode(_ c: CLLocationCoordinate2D) async {
         let marks = try? await geocoder.reverseGeocodeLocation(CLLocation(latitude: c.latitude, longitude: c.longitude))
+        // A slower lookup for a spot the pin has since left mustn't label the new one.
+        guard let current = coord, Self.sameSpot(current, c) else { return }
         guard let p = marks?.first else { return }
         let line1 = [p.subThoroughfare, p.thoroughfare].compactMap { $0 }.joined(separator: " ")
         let line2 = [p.locality, p.administrativeArea].compactMap { $0 }.joined(separator: ", ")
         let full = [line1, line2].filter { !$0.isEmpty }.joined(separator: ", ")
         address = full.isEmpty ? nil : full
+        addressCoord = full.isEmpty ? nil : c
+    }
+
+    /// The address to save: the label for the pinned spot when we have one. With
+    /// none, nil for a new place and for an existing place that wasn't moved (the
+    /// server keeps what it has); empty, which clears it, for an existing place
+    /// whose pin moved, so the old spot's address doesn't stay on the moved place.
+    private func addressToSave(for c: CLLocationCoordinate2D) -> String? {
+        if let pinned = pinnedAddress { return pinned }
+        guard let stored = storedCoord else { return nil }    // a new place: nothing to clear
+        return Self.sameSpot(stored, c) ? nil : ""
+    }
+
+    /// Within a metre: the map's center round-trips through floating point.
+    private static func sameSpot(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Bool {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) < 1
     }
 
     // Co-owned "our spot" sharing — custom places only.
@@ -357,6 +384,7 @@ struct PlaceEditor: View {
             name = p.name; type = p.type; emoji = p.emoji ?? ""; radius = Double(p.radiusM)
             let c = CLLocationCoordinate2D(latitude: p.lat, longitude: p.lng)
             coord = c
+            storedCoord = c
             camera = .region(MKCoordinateRegion(center: c, latitudinalMeters: 600, longitudinalMeters: 600))
             placeID = p.id; ownerID = p.ownerId; members = p.sharedWith
             Task { await reverseGeocode(c) }
@@ -391,7 +419,8 @@ struct PlaceEditor: View {
         guard let c = coord else { return }
         busy = true; error = nil
         let body = PlaceBody(name: name, type: type, lat: c.latitude, lng: c.longitude,
-                             radiusM: Int(radius), emoji: emoji.isEmpty ? nil : emoji)
+                             radiusM: Int(radius), emoji: emoji.isEmpty ? nil : emoji,
+                             address: addressToSave(for: c))
         Task {
             defer { busy = false }
             do {

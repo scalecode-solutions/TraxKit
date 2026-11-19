@@ -71,6 +71,23 @@ public final class TraxStore {
         return (try? context.fetch(fetch).first?.syncTs) ?? 0
     }
 
+    /// The feed's revision cursor (nil before the first revision-mode sync).
+    public func revCursor() -> Int64? {
+        let fetch = FetchDescriptor<SyncCursorEntity>(predicate: #Predicate { $0.key == "rev" })
+        return try? context.fetch(fetch).first?.syncTs
+    }
+
+    /// Keep the server's revision as given: after a reload it's the server's
+    /// word on where this client stands, not something to max() against.
+    public func setRevCursor(_ rev: Int64) {
+        let fetch = FetchDescriptor<SyncCursorEntity>(predicate: #Predicate { $0.key == "rev" })
+        if let existing = try? context.fetch(fetch).first {
+            existing.syncTs = rev
+        } else {
+            context.insert(SyncCursorEntity(key: "rev", syncTs: rev))
+        }
+    }
+
     public func setCursor(_ ts: Int64) {
         let fetch = FetchDescriptor<SyncCursorEntity>(predicate: #Predicate { $0.key == "feed" })
         if let existing = try? context.fetch(fetch).first {
@@ -86,10 +103,12 @@ public final class TraxStore {
     /// transitions, advance the cursor. Stopped ids first so a stop+restart in one
     /// page nets to "present".
     public func applyFeedPage(_ page: FeedDTO) {
+        if page.reload == true { deleteAllShares() }
         for id in page.stoppedIds ?? [] { deleteShare(id: id) }
         for dto in page.shares { upsertShare(dto) }
         for t in page.transitions ?? [] { upsertTransition(t) }
         setCursor(page.syncTs)
+        if page.isRevisioned, let rev = page.rev, rev > 0 { setRevCursor(rev) }
         save()
     }
 
@@ -122,6 +141,22 @@ public final class TraxStore {
         } else {
             e.lat = nil; e.lng = nil; e.locRecordedAt = nil
         }
+    }
+
+    /// A reload: every share held goes; the page that follows is the full set.
+    func deleteAllShares() {
+        try? context.delete(model: ShareEntity.self)
+    }
+
+    /// Drop shares whose expiry has passed (a server that doesn't tombstone
+    /// expiry never removes them). Returns whether any went.
+    @discardableResult
+    func deleteExpiredShares(now: Date = Date()) -> Bool {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let fetch = FetchDescriptor<ShareEntity>(predicate: #Predicate { $0.expiresAt != nil })
+        let expired = ((try? context.fetch(fetch)) ?? []).filter { $0.expiresAt! <= nowMs }
+        for e in expired { context.delete(e) }
+        return !expired.isEmpty
     }
 
     public func deleteShare(id: UUID) {

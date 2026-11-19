@@ -764,6 +764,15 @@ public nonisolated struct Trax_V1_TrackResponse: Sendable {
   public init() {}
 }
 
+/// Two modes. Without `rev` (older clients): a timestamp delta from `since`.
+/// With `rev` (0 = first sync): a change feed in revision order. The server
+/// returns every share row that changed after `rev` (active and visible ones in
+/// `shares`; every removal, whether stopped, revoked, unfriended or expired, in
+/// `stopped_ids`), paged by `load_from`; the final page carries the `rev` to
+/// keep. `reload` means the client's rev is older than the server's history:
+/// drop what it holds and apply this as a full load. Transitions are events, not
+/// rows: in both modes they follow `since` (send the last sync_ts minus a margin
+/// and dedupe by id).
 public nonisolated struct Trax_V1_FeedRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -787,12 +796,32 @@ public nonisolated struct Trax_V1_FeedRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
+  public var rev: Int64 {
+    get {_rev ?? 0}
+    set {_rev = newValue}
+  }
+  /// Returns true if `rev` has been explicitly set.
+  public var hasRev: Bool {self._rev != nil}
+  /// Clears the value of `rev`. Subsequent reads from it will return its default value.
+  public mutating func clearRev() {self._rev = nil}
+
+  public var loadFrom: Int64 {
+    get {_loadFrom ?? 0}
+    set {_loadFrom = newValue}
+  }
+  /// Returns true if `loadFrom` has been explicitly set.
+  public var hasLoadFrom: Bool {self._loadFrom != nil}
+  /// Clears the value of `loadFrom`. Subsequent reads from it will return its default value.
+  public mutating func clearLoadFrom() {self._loadFrom = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _since: Int64? = nil
   fileprivate var _limit: Int32? = nil
+  fileprivate var _rev: Int64? = nil
+  fileprivate var _loadFrom: Int64? = nil
 }
 
 public nonisolated struct Trax_V1_FeedResponse: Sendable {
@@ -809,6 +838,12 @@ public nonisolated struct Trax_V1_FeedResponse: Sendable {
   public var hasMore_p: Bool = false
 
   public var stoppedIds: [String] = []
+
+  public var rev: Int64 = 0
+
+  public var reload: Bool = false
+
+  public var loadFrom: Int64 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1292,12 +1327,23 @@ public nonisolated struct Trax_V1_ListTripsRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
+  /// exclusive, on start_ts
+  public var before: Int64 {
+    get {_before ?? 0}
+    set {_before = newValue}
+  }
+  /// Returns true if `before` has been explicitly set.
+  public var hasBefore: Bool {self._before != nil}
+  /// Clears the value of `before`. Subsequent reads from it will return its default value.
+  public mutating func clearBefore() {self._before = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _since: Int64? = nil
   fileprivate var _limit: Int32? = nil
+  fileprivate var _before: Int64? = nil
 }
 
 public nonisolated struct Trax_V1_ListTripsResponse: Sendable {
@@ -1335,12 +1381,23 @@ public nonisolated struct Trax_V1_ListVisitsRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
+  /// exclusive, on start_ts
+  public var before: Int64 {
+    get {_before ?? 0}
+    set {_before = newValue}
+  }
+  /// Returns true if `before` has been explicitly set.
+  public var hasBefore: Bool {self._before != nil}
+  /// Clears the value of `before`. Subsequent reads from it will return its default value.
+  public mutating func clearBefore() {self._before = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _since: Int64? = nil
   fileprivate var _limit: Int32? = nil
+  fileprivate var _before: Int64? = nil
 }
 
 public nonisolated struct Trax_V1_ListVisitsResponse: Sendable {
@@ -1380,12 +1437,23 @@ public nonisolated struct Trax_V1_ListOwnerTripsRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
+  /// exclusive, on start_ts
+  public var before: Int64 {
+    get {_before ?? 0}
+    set {_before = newValue}
+  }
+  /// Returns true if `before` has been explicitly set.
+  public var hasBefore: Bool {self._before != nil}
+  /// Clears the value of `before`. Subsequent reads from it will return its default value.
+  public mutating func clearBefore() {self._before = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _since: Int64? = nil
   fileprivate var _limit: Int32? = nil
+  fileprivate var _before: Int64? = nil
 }
 
 public nonisolated struct Trax_V1_ListOwnerVisitsRequest: Sendable {
@@ -1413,12 +1481,23 @@ public nonisolated struct Trax_V1_ListOwnerVisitsRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
+  /// exclusive, on start_ts
+  public var before: Int64 {
+    get {_before ?? 0}
+    set {_before = newValue}
+  }
+  /// Returns true if `before` has been explicitly set.
+  public var hasBefore: Bool {self._before != nil}
+  /// Clears the value of `before`. Subsequent reads from it will return its default value.
+  public mutating func clearBefore() {self._before = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _since: Int64? = nil
   fileprivate var _limit: Int32? = nil
+  fileprivate var _before: Int64? = nil
 }
 
 public nonisolated struct Trax_V1_ListOwnerTransitionsRequest: Sendable {
@@ -2391,7 +2470,7 @@ nonisolated extension Trax_V1_TrackResponse: SwiftProtobuf.Message, SwiftProtobu
 
 nonisolated extension Trax_V1_FeedRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".FeedRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0\u{1}rev\0\u{3}load_from\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2401,6 +2480,8 @@ nonisolated extension Trax_V1_FeedRequest: SwiftProtobuf.Message, SwiftProtobuf.
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularInt64Field(value: &self._since) }()
       case 2: try { try decoder.decodeSingularInt32Field(value: &self._limit) }()
+      case 3: try { try decoder.decodeSingularInt64Field(value: &self._rev) }()
+      case 4: try { try decoder.decodeSingularInt64Field(value: &self._loadFrom) }()
       default: break
       }
     }
@@ -2417,12 +2498,20 @@ nonisolated extension Trax_V1_FeedRequest: SwiftProtobuf.Message, SwiftProtobuf.
     try { if let v = self._limit {
       try visitor.visitSingularInt32Field(value: v, fieldNumber: 2)
     } }()
+    try { if let v = self._rev {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._loadFrom {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Trax_V1_FeedRequest, rhs: Trax_V1_FeedRequest) -> Bool {
     if lhs._since != rhs._since {return false}
     if lhs._limit != rhs._limit {return false}
+    if lhs._rev != rhs._rev {return false}
+    if lhs._loadFrom != rhs._loadFrom {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2430,7 +2519,7 @@ nonisolated extension Trax_V1_FeedRequest: SwiftProtobuf.Message, SwiftProtobuf.
 
 nonisolated extension Trax_V1_FeedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".FeedResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}shares\0\u{1}transitions\0\u{3}sync_ts\0\u{3}has_more\0\u{3}stopped_ids\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}shares\0\u{1}transitions\0\u{3}sync_ts\0\u{3}has_more\0\u{3}stopped_ids\0\u{1}rev\0\u{1}reload\0\u{3}load_from\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2443,6 +2532,9 @@ nonisolated extension Trax_V1_FeedResponse: SwiftProtobuf.Message, SwiftProtobuf
       case 3: try { try decoder.decodeSingularInt64Field(value: &self.syncTs) }()
       case 4: try { try decoder.decodeSingularBoolField(value: &self.hasMore_p) }()
       case 5: try { try decoder.decodeRepeatedStringField(value: &self.stoppedIds) }()
+      case 6: try { try decoder.decodeSingularInt64Field(value: &self.rev) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.reload) }()
+      case 8: try { try decoder.decodeSingularInt64Field(value: &self.loadFrom) }()
       default: break
       }
     }
@@ -2464,6 +2556,15 @@ nonisolated extension Trax_V1_FeedResponse: SwiftProtobuf.Message, SwiftProtobuf
     if !self.stoppedIds.isEmpty {
       try visitor.visitRepeatedStringField(value: self.stoppedIds, fieldNumber: 5)
     }
+    if self.rev != 0 {
+      try visitor.visitSingularInt64Field(value: self.rev, fieldNumber: 6)
+    }
+    if self.reload != false {
+      try visitor.visitSingularBoolField(value: self.reload, fieldNumber: 7)
+    }
+    if self.loadFrom != 0 {
+      try visitor.visitSingularInt64Field(value: self.loadFrom, fieldNumber: 8)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2473,6 +2574,9 @@ nonisolated extension Trax_V1_FeedResponse: SwiftProtobuf.Message, SwiftProtobuf
     if lhs.syncTs != rhs.syncTs {return false}
     if lhs.hasMore_p != rhs.hasMore_p {return false}
     if lhs.stoppedIds != rhs.stoppedIds {return false}
+    if lhs.rev != rhs.rev {return false}
+    if lhs.reload != rhs.reload {return false}
+    if lhs.loadFrom != rhs.loadFrom {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3279,7 +3383,7 @@ nonisolated extension Trax_V1_PostTransitionResponse: SwiftProtobuf.Message, Swi
 
 nonisolated extension Trax_V1_ListTripsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ListTripsRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0\u{1}before\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3289,6 +3393,7 @@ nonisolated extension Trax_V1_ListTripsRequest: SwiftProtobuf.Message, SwiftProt
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularInt64Field(value: &self._since) }()
       case 2: try { try decoder.decodeSingularInt32Field(value: &self._limit) }()
+      case 3: try { try decoder.decodeSingularInt64Field(value: &self._before) }()
       default: break
       }
     }
@@ -3305,12 +3410,16 @@ nonisolated extension Trax_V1_ListTripsRequest: SwiftProtobuf.Message, SwiftProt
     try { if let v = self._limit {
       try visitor.visitSingularInt32Field(value: v, fieldNumber: 2)
     } }()
+    try { if let v = self._before {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Trax_V1_ListTripsRequest, rhs: Trax_V1_ListTripsRequest) -> Bool {
     if lhs._since != rhs._since {return false}
     if lhs._limit != rhs._limit {return false}
+    if lhs._before != rhs._before {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3348,7 +3457,7 @@ nonisolated extension Trax_V1_ListTripsResponse: SwiftProtobuf.Message, SwiftPro
 
 nonisolated extension Trax_V1_ListVisitsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ListVisitsRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}since\0\u{1}limit\0\u{1}before\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3358,6 +3467,7 @@ nonisolated extension Trax_V1_ListVisitsRequest: SwiftProtobuf.Message, SwiftPro
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularInt64Field(value: &self._since) }()
       case 2: try { try decoder.decodeSingularInt32Field(value: &self._limit) }()
+      case 3: try { try decoder.decodeSingularInt64Field(value: &self._before) }()
       default: break
       }
     }
@@ -3374,12 +3484,16 @@ nonisolated extension Trax_V1_ListVisitsRequest: SwiftProtobuf.Message, SwiftPro
     try { if let v = self._limit {
       try visitor.visitSingularInt32Field(value: v, fieldNumber: 2)
     } }()
+    try { if let v = self._before {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Trax_V1_ListVisitsRequest, rhs: Trax_V1_ListVisitsRequest) -> Bool {
     if lhs._since != rhs._since {return false}
     if lhs._limit != rhs._limit {return false}
+    if lhs._before != rhs._before {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3417,7 +3531,7 @@ nonisolated extension Trax_V1_ListVisitsResponse: SwiftProtobuf.Message, SwiftPr
 
 nonisolated extension Trax_V1_ListOwnerTripsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ListOwnerTripsRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}owner_id\0\u{1}since\0\u{1}limit\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}owner_id\0\u{1}since\0\u{1}limit\0\u{1}before\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3428,6 +3542,7 @@ nonisolated extension Trax_V1_ListOwnerTripsRequest: SwiftProtobuf.Message, Swif
       case 1: try { try decoder.decodeSingularStringField(value: &self.ownerID) }()
       case 2: try { try decoder.decodeSingularInt64Field(value: &self._since) }()
       case 3: try { try decoder.decodeSingularInt32Field(value: &self._limit) }()
+      case 4: try { try decoder.decodeSingularInt64Field(value: &self._before) }()
       default: break
       }
     }
@@ -3446,6 +3561,9 @@ nonisolated extension Trax_V1_ListOwnerTripsRequest: SwiftProtobuf.Message, Swif
     } }()
     try { if let v = self._limit {
       try visitor.visitSingularInt32Field(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._before {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 4)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3454,6 +3572,7 @@ nonisolated extension Trax_V1_ListOwnerTripsRequest: SwiftProtobuf.Message, Swif
     if lhs.ownerID != rhs.ownerID {return false}
     if lhs._since != rhs._since {return false}
     if lhs._limit != rhs._limit {return false}
+    if lhs._before != rhs._before {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3461,7 +3580,7 @@ nonisolated extension Trax_V1_ListOwnerTripsRequest: SwiftProtobuf.Message, Swif
 
 nonisolated extension Trax_V1_ListOwnerVisitsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ListOwnerVisitsRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}owner_id\0\u{1}since\0\u{1}limit\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}owner_id\0\u{1}since\0\u{1}limit\0\u{1}before\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -3472,6 +3591,7 @@ nonisolated extension Trax_V1_ListOwnerVisitsRequest: SwiftProtobuf.Message, Swi
       case 1: try { try decoder.decodeSingularStringField(value: &self.ownerID) }()
       case 2: try { try decoder.decodeSingularInt64Field(value: &self._since) }()
       case 3: try { try decoder.decodeSingularInt32Field(value: &self._limit) }()
+      case 4: try { try decoder.decodeSingularInt64Field(value: &self._before) }()
       default: break
       }
     }
@@ -3491,6 +3611,9 @@ nonisolated extension Trax_V1_ListOwnerVisitsRequest: SwiftProtobuf.Message, Swi
     try { if let v = self._limit {
       try visitor.visitSingularInt32Field(value: v, fieldNumber: 3)
     } }()
+    try { if let v = self._before {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3498,6 +3621,7 @@ nonisolated extension Trax_V1_ListOwnerVisitsRequest: SwiftProtobuf.Message, Swi
     if lhs.ownerID != rhs.ownerID {return false}
     if lhs._since != rhs._since {return false}
     if lhs._limit != rhs._limit {return false}
+    if lhs._before != rhs._before {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

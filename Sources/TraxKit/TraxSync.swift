@@ -141,6 +141,11 @@ public final class TraxSync {
         await task.value
     }
 
+    /// How far each feed request reaches back before the last sync time.
+    static let sinceOverlapMs: Int64 = 120_000
+    /// A runaway guard: no single refresh drains more pages than this.
+    static let maxFeedPages = 50
+
     private func runRefreshes() async {
         isLoading = true
         repeat {
@@ -157,20 +162,44 @@ public final class TraxSync {
     private func refreshOnce() async {
         let gen = generation
         guard current(gen) else { return }
-        var since = store.cursor()
+        // Transitions (and the whole feed, from a server in timestamp mode)
+        // follow `since`. It overlaps the last sync by a margin so a write that
+        // committed late isn't skipped; transitions dedupe by id and shares upsert.
+        let cursor = store.cursor()
+        var since: Int64? = cursor > 0 ? max(0, cursor - Self.sinceOverlapMs) : nil
+        let held = store.revCursor()
+        var rev = held ?? 0
+        var loadFrom: Int64?
         var applied = false
+        var firstPage = true
         // Publish whatever was applied, even if a later page fails.
         defer { if applied && current(gen) { publish() } }
         do {
-            while true {
-                let page = try await transport.feed(since: since > 0 ? since : nil, limit: nil)
+            for _ in 0..<Self.maxFeedPages {
+                let page = try await transport.feed(since: since, rev: rev, loadFrom: loadFrom, limit: nil)
                 guard current(gen) else { return }   // stopped or wiped meanwhile: write nothing
+                // The first revision-mode answer to a store synced by timestamp
+                // (an upgrade): a full load can't name shares the server has
+                // already purged, so it replaces what's held, like a reload.
+                if firstPage, held == nil, page.isRevisioned { store.deleteAllShares() }
+                firstPage = false
                 store.applyFeedPage(page)
                 applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
-                guard page.hasMore, page.syncTs > since else { break }
-                since = page.syncTs
+                guard page.hasMore else { break }
+                if page.isRevisioned {
+                    // Revision order: keep `since` (transitions came on the first
+                    // page), follow the server's cursor, stop if it doesn't move.
+                    let next = page.rev ?? rev
+                    guard next != rev || page.loadFrom != loadFrom else { break }
+                    rev = next; loadFrom = page.loadFrom
+                } else {
+                    // Timestamp mode (an older server): page by sync time.
+                    guard page.syncTs > (since ?? 0) else { break }
+                    since = page.syncTs
+                }
             }
+            if store.deleteExpiredShares() { store.save(); applied = true }
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
@@ -257,6 +286,12 @@ public final class TraxSync {
     /// The server's answer to the last delivered fix (its `shares` count says
     /// whether anyone is still receiving my location).
     private(set) var lastTrackAck: TrackAckDTO?
+    /// Send each fix's own time as `recordedAt`, so the server files it under
+    /// when it was taken rather than when it arrived (a retried fix arrives
+    /// late). Turned off for the session if the server refuses the device's
+    /// clock (more than its allowed skew ahead): fixes then go out stamped by
+    /// the server, as before, instead of all being refused.
+    private var sendsRecordedAt = true
 
     /// The kit's tracking demand for the host, derived purely from share state —
     /// never leaks *who* is watching. The host decides how to satisfy it.
@@ -275,7 +310,8 @@ public final class TraxSync {
             lat: fix.lat, lng: fix.lng, accuracy: fix.horizontalAccuracy,
             altitude: fix.altitude, speed: fix.speed, heading: fix.course,
             motion: fix.motion, batteryLevel: fix.batteryLevel, batteryCharging: fix.batteryCharging,
-            clientTs: Int64(fix.timestamp.timeIntervalSince1970 * 1000))
+            clientTs: Int64(fix.timestamp.timeIntervalSince1970 * 1000),
+            recordedAt: sendsRecordedAt ? Int64(fix.timestamp.timeIntervalSince1970 * 1000) : nil)
         flushPendingTrack()
     }
 
@@ -297,15 +333,37 @@ public final class TraxSync {
                     self.lastPostedAt = Date()
                     self.lastTrackAck = ack
                 } catch {
+                    guard self.current(gen) else { return }
+                    // The server refused the fix's time (the device clock is
+                    // off): stop sending it and resend this fix without it.
+                    if body.recordedAt != nil, Self.refusesRecordedAt(error) {
+                        self.sendsRecordedAt = false
+                        if self.pendingTrack == nil {
+                            var unstamped = body
+                            unstamped.recordedAt = nil
+                            self.pendingTrack = unstamped
+                        } else {
+                            self.pendingTrack?.recordedAt = nil
+                        }
+                        continue
+                    }
                     // Keep it for the next attempt unless a newer fix already
                     // replaced it, or retrying can't help.
-                    if self.pendingTrack == nil, isRetryable(error), self.current(gen) {
+                    if self.pendingTrack == nil, isRetryable(error) {
                         self.pendingTrack = body
                     }
                     return
                 }
             }
         }
+    }
+
+    /// The server refusing a fix stamped ahead of its clock (mvTrax's Track:
+    /// "recorded_at is in the future"). Too old is a different refusal: that
+    /// fix is dropped, not restamped.
+    static func refusesRecordedAt(_ error: Error) -> Bool {
+        guard let e = error as? TraxError else { return false }
+        return e.code == "invalid_argument" && e.message.contains("recorded_at is in the future")
     }
 
     // MARK: - Places (the user's own)
@@ -397,8 +455,13 @@ public final class TraxSync {
         let sinceMs = Int64(startOfDay.timeIntervalSince1970 * 1000)
         let endMs = Int64(endOfDay.timeIntervalSince1970 * 1000)
         do {
-            let trips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
-            let visits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, limit: 1000).filter { $0.startTs < endMs }
+            // Bounded to the day on the server, so a past day isn't crowded out
+            // by everything since it. The filter stays for a server that
+            // ignores `before`.
+            let trips = try await transport.tripsFor(ownerId: ownerID, since: sinceMs, before: endMs, limit: 1000)
+                .filter { $0.startTs < endMs }
+            let visits = try await transport.visitsFor(ownerId: ownerID, since: sinceMs, before: endMs, limit: 1000)
+                .filter { $0.startTs < endMs }
             let pts = try await transport.points(ownerId: ownerID, since: sinceMs, before: endMs, limit: 2000)
             lastError = nil
             return TimelineDay(trips: trips, visits: visits, points: pts.points)

@@ -48,15 +48,18 @@ public struct ConnectTraxTransport: TraxTransport {
 
     // MARK: - Feed
 
-    public func feed(since: Int64?, limit: Int?) async throws -> FeedDTO {
+    public func feed(since: Int64?, rev: Int64?, loadFrom: Int64?, limit: Int?) async throws -> FeedDTO {
         var req = Trax_V1_FeedRequest()
         if let since { req.since = since }
+        if let rev { req.rev = rev }
+        if let loadFrom { req.loadFrom = loadFrom }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.feed(request: req, headers: try await authHeaders()))
         return FeedDTO(shares: r.shares.map(shareDTO),
                        transitions: r.transitions.map(transitionDTO),
                        syncTs: r.syncTs, hasMore: r.hasMore_p,
-                       stoppedIds: r.stoppedIds.map(uid))
+                       stoppedIds: r.stoppedIds.map(uid),
+                       rev: r.rev, reload: r.reload, loadFrom: r.loadFrom == 0 ? nil : r.loadFrom)
     }
 
     // MARK: - Producer
@@ -186,35 +189,39 @@ public struct ConnectTraxTransport: TraxTransport {
 
     // MARK: - Timeline
 
-    public func trips(since: Int64?, limit: Int?) async throws -> [TripDTO] {
+    public func trips(since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] {
         var req = Trax_V1_ListTripsRequest()
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
-    public func visits(since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+    public func visits(since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] {
         var req = Trax_V1_ListVisitsRequest()
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)
     }
 
-    public func tripsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [TripDTO] {
+    public func tripsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [TripDTO] {
         var req = Trax_V1_ListOwnerTripsRequest()
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listOwnerTrips(request: req, headers: try await authHeaders()))
         return r.trips.map(tripDTO)
     }
 
-    public func visitsFor(ownerId: UUID, since: Int64?, limit: Int?) async throws -> [VisitDTO] {
+    public func visitsFor(ownerId: UUID, since: Int64?, before: Int64?, limit: Int?) async throws -> [VisitDTO] {
         var req = Trax_V1_ListOwnerVisitsRequest()
         req.ownerID = ownerId.uuidString
         if let since { req.since = since }
+        if let before { req.before = before }
         if let limit { req.limit = Int32(limit) }
         let r = try value(await client.listOwnerVisits(request: req, headers: try await authHeaders()))
         return r.visits.map(visitDTO)
@@ -283,7 +290,7 @@ private func pointDTO(_ p: Trax_V1_Point) -> PointDTO {
 private func placeDTO(_ p: Trax_V1_Place) -> PlaceDTO {
     PlaceDTO(id: uid(p.id), ownerId: uid(p.ownerID), name: p.name, type: p.type,
              lat: p.lat, lng: p.lng, radiusM: Int(p.radiusM),
-             emoji: p.hasEmoji ? p.emoji : nil, address: p.hasAddress ? p.address : nil,
+             emoji: p.hasEmoji ? p.emoji : nil, address: p.hasAddress && !p.address.isEmpty ? p.address : nil,   // "" = cleared
              sharedWith: p.sharedWith.isEmpty ? nil : p.sharedWith.map(uid),
              createdAt: p.createdAt, updatedAt: p.updatedAt)
 }
