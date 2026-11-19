@@ -70,6 +70,25 @@ import Testing
         #expect(store.revCursor() == 40)
     }
 
+    /// Upgrading from timestamp sync: the first revision-mode answer replaces
+    /// the shares held, since a full load can't name one the server purged.
+    @Test func firstRevisionSyncReplacesTimestampSyncedShares() async {
+        let (t, sync, store) = rig()
+        let purged = Fixtures.share(owner: alice, viewer: me, lat: 1, lng: 1)
+        await t.queueFeed(Fixtures.page([purged]))          // an older server: timestamp mode
+        await sync.refresh()
+        #expect(heldShareIDs(store) == [purged.id])
+
+        let current = Fixtures.share(owner: bob, viewer: me, lat: 2, lng: 2)
+        await t.queueFeed(page([current], rev: 12))         // the server now answers by revision
+        await sync.refresh()
+        #expect(heldShareIDs(store) == [current.id])
+
+        await t.queueFeed(page([Fixtures.share(owner: alice, viewer: me)], rev: 13))
+        await sync.refresh()                                 // later revision syncs are diffs
+        #expect(heldShareIDs(store).count == 2)
+    }
+
     /// An expiry arrives as a removal like any stop.
     @Test func expiryTombstoneRemovesTheShare() async {
         let (t, sync, store) = rig()

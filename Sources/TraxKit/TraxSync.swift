@@ -167,15 +167,22 @@ public final class TraxSync {
         // committed late isn't skipped; transitions dedupe by id and shares upsert.
         let cursor = store.cursor()
         var since: Int64? = cursor > 0 ? max(0, cursor - Self.sinceOverlapMs) : nil
-        var rev = store.revCursor() ?? 0
+        let held = store.revCursor()
+        var rev = held ?? 0
         var loadFrom: Int64?
         var applied = false
+        var firstPage = true
         // Publish whatever was applied, even if a later page fails.
         defer { if applied && current(gen) { publish() } }
         do {
             for _ in 0..<Self.maxFeedPages {
                 let page = try await transport.feed(since: since, rev: rev, loadFrom: loadFrom, limit: nil)
                 guard current(gen) else { return }   // stopped or wiped meanwhile: write nothing
+                // The first revision-mode answer to a store synced by timestamp
+                // (an upgrade): a full load can't name shares the server has
+                // already purged, so it replaces what's held, like a reload.
+                if firstPage, held == nil, page.isRevisioned { store.deleteAllShares() }
+                firstPage = false
                 store.applyFeedPage(page)
                 applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
