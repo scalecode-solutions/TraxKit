@@ -56,7 +56,7 @@ public final class TraxSync {
         recentTransitions = []
         pollFailureStreaks = [:]
         lastError = nil
-        lastPostedAt = nil
+        lastDelivered = nil
         pendingTrack = nil
         lastTrackAck = nil
         publish()
@@ -276,12 +276,12 @@ public final class TraxSync {
         try await transport.track(body)
     }
 
-    /// When a fix was last posted SUCCESSFULLY (the throttle counts from here,
-    /// so a failed post doesn't spend it).
-    private var lastPostedAt: Date?
-    /// The newest fix not yet delivered (latest wins; older unsent fixes are
-    /// superseded, not queued).
-    private var pendingTrack: TrackBody?
+    /// The last fix the server accepted: what `UploadPolicy` compares a new fix
+    /// with (a failed post doesn't count, so it doesn't hold the next one back).
+    private(set) var lastDelivered: TraxFix?
+    /// The newest fix not yet delivered, with the body it goes out as (latest
+    /// wins; older unsent fixes are superseded, not queued).
+    private var pendingTrack: (fix: TraxFix, body: TrackBody)?
     private var trackInFlight = false
     /// The server's answer to the last delivered fix (its `shares` count says
     /// whether anyone is still receiving my location).
@@ -299,19 +299,20 @@ public final class TraxSync {
     public var trackingDemand: TraxTrackingDemand { outgoing.isEmpty ? .off : .continuous }
 
     /// Ingest one enriched fix from the host and post it to mvTrax — but ONLY while
-    /// I'm sharing, throttled. This is the producer-collapse: the host owns the
-    /// device + the cadence tier; the kit just gates on sharing + throttles uploads.
-    /// A failed post keeps the fix pending: the next fix (or poll tick) sends the
-    /// newest one.
-    public func ingestFix(_ fix: TraxFix, minInterval: TimeInterval = 5) {
+    /// I'm sharing, and only when it says something new (`UploadPolicy`: moved,
+    /// motion changed, or the heartbeat is due). This is the producer-collapse:
+    /// the host owns the device + the cadence tier; the kit gates on sharing and
+    /// decides what's worth uploading. A failed post keeps the fix pending: the
+    /// next fix (or poll tick) sends the newest one.
+    public func ingestFix(_ fix: TraxFix) {
         guard !isWiped, !outgoing.isEmpty else { return }            // not sharing → nothing to post
-        if let last = lastPostedAt, Date().timeIntervalSince(last) < minInterval { return }
-        pendingTrack = TrackBody(
+        guard UploadPolicy.decide(last: lastDelivered, new: fix, now: Date()) == .post else { return }
+        pendingTrack = (fix, TrackBody(
             lat: fix.lat, lng: fix.lng, accuracy: fix.horizontalAccuracy,
             altitude: fix.altitude, speed: fix.speed, heading: fix.course,
             motion: fix.motion, batteryLevel: fix.batteryLevel, batteryCharging: fix.batteryCharging,
             clientTs: Int64(fix.timestamp.timeIntervalSince1970 * 1000),
-            recordedAt: sendsRecordedAt ? Int64(fix.timestamp.timeIntervalSince1970 * 1000) : nil)
+            recordedAt: sendsRecordedAt ? Int64(fix.timestamp.timeIntervalSince1970 * 1000) : nil))
         flushPendingTrack()
     }
 
@@ -325,12 +326,13 @@ public final class TraxSync {
         let gen = generation
         Task {
             defer { self.trackInFlight = false }
-            while let body = self.pendingTrack, self.current(gen), !self.outgoing.isEmpty {
+            while let item = self.pendingTrack, self.current(gen), !self.outgoing.isEmpty {
                 self.pendingTrack = nil
+                let body = item.body
                 do {
                     let ack = try await self.transport.track(body)
                     guard self.current(gen) else { return }
-                    self.lastPostedAt = Date()
+                    self.lastDelivered = item.fix
                     self.lastTrackAck = ack
                 } catch {
                     guard self.current(gen) else { return }
@@ -341,16 +343,16 @@ public final class TraxSync {
                         if self.pendingTrack == nil {
                             var unstamped = body
                             unstamped.recordedAt = nil
-                            self.pendingTrack = unstamped
+                            self.pendingTrack = (item.fix, unstamped)
                         } else {
-                            self.pendingTrack?.recordedAt = nil
+                            self.pendingTrack?.body.recordedAt = nil
                         }
                         continue
                     }
                     // Keep it for the next attempt unless a newer fix already
                     // replaced it, or retrying can't help.
                     if self.pendingTrack == nil, isRetryable(error) {
-                        self.pendingTrack = body
+                        self.pendingTrack = item
                     }
                     return
                 }

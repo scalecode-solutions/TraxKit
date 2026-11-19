@@ -45,6 +45,7 @@ public final class TraxEngine {
     /// the tasks below never hold the engine between steps, so it can deinit,
     /// and deinit ends them.
     isolated deinit {
+        nap?.cancel()
         pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
         guard pollTask != nil else { return }   // never started, or already stopped
         host.setDesiredTracking(.off)           // don't leave the device tracking for nobody
@@ -85,20 +86,80 @@ public final class TraxEngine {
         }
         pollTask = Task { [weak self] in
             await self?.pollFirst()
-            var tick = 0
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(20))
+                // The nap is taken without holding the engine, so a dropped
+                // engine can still deinit while the poll sleeps.
+                guard let nap = self?.nextNap() else { return }
+                await nap.value
                 guard !Task.isCancelled, let self else { return }
-                tick += 1
-                await self.pollTick(tick)
+                await self.pollTick()
             }
         }
+    }
+
+    // MARK: - Holds (how fresh the feed must be)
+
+    /// A screen showing others' locations appeared: refresh now, and poll at the
+    /// held cadence while any screen holds the engine. Counted, so several
+    /// screens can't fight. Sharing my own location doesn't depend on holds.
+    public func acquire() {
+        holders += 1
+        wake()
+    }
+
+    /// That screen went away.
+    public func release() {
+        holders = max(0, holders - 1)
+    }
+
+    /// The app went to the background (false) or came back (true); coming back
+    /// refreshes at once.
+    public func setForeground(_ on: Bool) {
+        let cameBack = on && !foreground
+        foreground = on
+        if cameBack { wake() }
+    }
+
+    /// How many screens hold the engine now.
+    public private(set) var holders = 0
+    private var foreground = true
+
+    /// The feed poll's interval now; nil = don't poll until woken.
+    /// Swap-in point for FeedCadencePolicy (MVTRAX-18 step 3).
+    func pollInterval() -> Duration? {
+        holders > 0 && foreground ? .seconds(5) : .seconds(20)
+    }
+
+    private var nap: Task<Void, Never>?
+    private var wakeRequested = false
+    private var lastOutgoingRefresh: Date?
+    private var lastPlacesRefresh: Date?
+    static let outgoingEvery: TimeInterval = 20
+    static let placesEvery: TimeInterval = 120
+
+    /// The sleep before the next tick: none if a wake is pending, else the
+    /// current interval (cut short by `wake()`).
+    private func nextNap() -> Task<Void, Never> {
+        if wakeRequested { return Task {} }
+        let interval = pollInterval() ?? .seconds(3600)
+        let t = Task { _ = try? await Task.sleep(for: interval) }
+        nap = t
+        return t
+    }
+
+    /// Poll now: cut the current nap short, or run once more right after the
+    /// tick in progress.
+    private func wake() {
+        guard pollTask != nil else { return }
+        wakeRequested = true
+        nap?.cancel()
     }
 
     /// Stop polling and posting. Work already in flight finishes without
     /// writing anything (the sync layer drops results from before the stop).
     public func stop() {
         sync.invalidate()
+        nap?.cancel(); nap = nil
         pollTask?.cancel(); fixTask?.cancel(); transitionTask?.cancel()
         pollTask = nil; fixTask = nil; transitionTask = nil
         host.setDesiredTracking(.off)
@@ -118,20 +179,32 @@ public final class TraxEngine {
     // MARK: - Poll + seam push
 
     private func pollFirst() async {
+        wakeRequested = false
         await sync.loadContacts()
         await sync.loadPlaces()
         await sync.refresh()
         await sync.refreshOutgoing()
+        lastOutgoingRefresh = Date(); lastPlacesRefresh = Date()
         pushRegions()
         pushDemand()
         observeOutgoing()
     }
 
-    private func pollTick(_ tick: Int) async {
+    /// One poll: the feed every tick; my outgoing shares and places on their
+    /// own slower clocks, so a fast held cadence doesn't multiply them.
+    private func pollTick() async {
+        wakeRequested = false
         sync.flushPendingTrack()   // a fix whose post failed goes out even if no new fix arrives
         await sync.refresh()
-        await sync.refreshOutgoing()
-        if tick % 6 == 0 { await sync.loadPlaces(); pushRegions() }   // ~2 min: refresh places + regions
+        let now = Date()
+        if lastOutgoingRefresh.map({ now.timeIntervalSince($0) >= Self.outgoingEvery }) ?? true {
+            await sync.refreshOutgoing()
+            lastOutgoingRefresh = now
+        }
+        if lastPlacesRefresh.map({ now.timeIntervalSince($0) >= Self.placesEvery }) ?? true {
+            await sync.loadPlaces(); pushRegions()
+            lastPlacesRefresh = now
+        }
         pushDemand()
     }
 
