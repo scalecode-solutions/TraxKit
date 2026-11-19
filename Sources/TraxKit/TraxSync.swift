@@ -216,6 +216,7 @@ public final class TraxSync {
             let fresh = try await transport.shares().outgoing
             guard current(gen) else { return }
             if fresh != outgoing { outgoing = fresh }
+            lastOutgoingAt = Date()
             if fresh.isEmpty { pendingTrack = nil }   // nothing to deliver a fix to any more
             pollSucceeded("outgoing")
         } catch is CancellationError {
@@ -286,6 +287,18 @@ public final class TraxSync {
     /// The server's answer to the last delivered fix (its `shares` count says
     /// whether anyone is still receiving my location).
     private(set) var lastTrackAck: TrackAckDTO?
+    private var lastAckAt: Date?
+    private var lastOutgoingAt: Date?
+
+    /// Whether I'm live-sharing now (ShareLivenessPolicy): an unexpired outgoing
+    /// share, and the last fix's ack didn't say my shares are gone.
+    public var isSharing: Bool {
+        ShareLivenessPolicy.shouldPost(
+            outgoingExpiries: outgoing.map(\.expiresAt),
+            activeSharesInLastAck: lastTrackAck?.shares,
+            ackNewerThanOutgoing: (lastAckAt ?? .distantPast) > (lastOutgoingAt ?? .distantPast),
+            now: Date())
+    }
     /// Send each fix's own time as `recordedAt`, so the server files it under
     /// when it was taken rather than when it arrived (a retried fix arrives
     /// late). Turned off for the session if the server refuses the device's
@@ -296,7 +309,11 @@ public final class TraxSync {
     /// The kit's tracking demand for the host, derived purely from share state —
     /// never leaks *who* is watching. The host decides how to satisfy it.
     /// (No active-watcher granularity yet, so any live share → `.continuous`.)
-    public var trackingDemand: TraxTrackingDemand { outgoing.isEmpty ? .off : .continuous }
+    /// Assumes foreground + permission; the engine asks TrackingDemandPolicy
+    /// with the real auth and app state.
+    public var trackingDemand: TraxTrackingDemand {
+        TrackingDemandPolicy.demand(sharing: isSharing, auth: .whenInUse, foreground: true)
+    }
 
     /// Ingest one enriched fix from the host and post it to mvTrax — but ONLY while
     /// I'm sharing, and only when it says something new (`UploadPolicy`: moved,
@@ -305,7 +322,7 @@ public final class TraxSync {
     /// decides what's worth uploading. A failed post keeps the fix pending: the
     /// next fix (or poll tick) sends the newest one.
     public func ingestFix(_ fix: TraxFix) {
-        guard !isWiped, !outgoing.isEmpty else { return }            // not sharing → nothing to post
+        guard !isWiped, isSharing else { return }                    // not sharing → nothing to post
         guard UploadPolicy.decide(last: lastDelivered, new: fix, now: Date()) == .post else { return }
         pendingTrack = (fix, TrackBody(
             lat: fix.lat, lng: fix.lng, accuracy: fix.horizontalAccuracy,
@@ -320,13 +337,13 @@ public final class TraxSync {
     /// by `ingestFix` and by the poll (so a fix whose post failed still goes out
     /// when no new fix arrives).
     func flushPendingTrack() {
-        guard !outgoing.isEmpty else { pendingTrack = nil; return }   // stopped sharing: never post
+        guard isSharing else { pendingTrack = nil; return }           // stopped sharing: never post
         guard !trackInFlight, pendingTrack != nil, current(generation) else { return }
         trackInFlight = true
         let gen = generation
         Task {
             defer { self.trackInFlight = false }
-            while let item = self.pendingTrack, self.current(gen), !self.outgoing.isEmpty {
+            while let item = self.pendingTrack, self.current(gen), self.isSharing {
                 self.pendingTrack = nil
                 let body = item.body
                 do {
@@ -334,6 +351,7 @@ public final class TraxSync {
                     guard self.current(gen) else { return }
                     self.lastDelivered = item.fix
                     self.lastTrackAck = ack
+                    self.lastAckAt = Date()
                 } catch {
                     guard self.current(gen) else { return }
                     // The server refused the fix's time (the device clock is

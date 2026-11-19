@@ -117,6 +117,7 @@ public final class TraxEngine {
     public func setForeground(_ on: Bool) {
         let cameBack = on && !foreground
         foreground = on
+        if pollTask != nil { pushDemand() }   // background → significant-change only (see TrackingDemandPolicy)
         if cameBack { wake() }
     }
 
@@ -127,7 +128,7 @@ public final class TraxEngine {
     /// The feed poll's interval now; nil = don't poll until woken.
     /// Swap-in point for FeedCadencePolicy (MVTRAX-18 step 3).
     func pollInterval() -> Duration? {
-        holders > 0 && foreground ? .seconds(5) : .seconds(20)
+        FeedCadencePolicy.interval(holds: holders, foreground: foreground)
     }
 
     private var nap: Task<Void, Never>?
@@ -216,7 +217,10 @@ public final class TraxEngine {
         })
     }
 
-    private func pushDemand() { host.setDesiredTracking(sync.trackingDemand) }
+    private func pushDemand() {
+        host.setDesiredTracking(TrackingDemandPolicy.demand(
+            sharing: sync.isSharing, auth: host.authorization, foreground: foreground))
+    }
 
     /// React to share start/stop immediately → update the host's tracking demand.
     private func observeOutgoing() {

@@ -80,18 +80,19 @@ import Testing
         engine.stop()
     }
 
-    /// Held (and in the foreground): the fast cadence. Otherwise the slow one.
+    /// Held (and in the foreground): the fast cadence; unheld in the foreground:
+    /// the slow one; in the background: no poll (FeedCadencePolicy).
     @Test func holdsSetTheCadence() async {
         let (_, _, engine) = await rig()
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == FeedCadencePolicy.foregroundUnheld)
         engine.acquire(); engine.acquire()
-        #expect(engine.pollInterval() == .seconds(5))
+        #expect(engine.pollInterval() == FeedCadencePolicy.held)
         engine.release()
-        #expect(engine.pollInterval() == .seconds(5))   // one screen still holds it
+        #expect(engine.pollInterval() == FeedCadencePolicy.held)   // one screen still holds it
         engine.setForeground(false)
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == nil)
         engine.setForeground(true); engine.release()
-        #expect(engine.pollInterval() == .seconds(20))
+        #expect(engine.pollInterval() == FeedCadencePolicy.foregroundUnheld)
         engine.release()                                 // an extra release can't go negative
         #expect(engine.holders == 0)
     }
