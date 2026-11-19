@@ -79,6 +79,7 @@ public struct TraxSettingsView<Extra: View>: View {
 
             extra
         }
+        .traxBackdrop()
         .navigationTitle("Location")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode) }

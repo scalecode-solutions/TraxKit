@@ -97,8 +97,7 @@ struct TraxPersonMap: View {
             Image(systemName: "scope")
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .background(.regularMaterial, in: .circle)
-                .shadow(radius: 2)
+                .traxGlass(in: .circle, interactive: true)
         }
         .buttonStyle(.plain)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -136,7 +135,7 @@ struct TraxPersonMap: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: maxHeight)
         .fixedSize(horizontal: false, vertical: true)
-        .background(.ultraThinMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
+        .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
         .accessibilityIdentifier("person.card")
     }
 
