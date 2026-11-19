@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03BD43DA4587F7B9D916F3D7 /* TraxLookUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64D3201C428692C2423E427 /* TraxLookUITests.swift */; };
 		29249BB68DC894630FD4A1E7 /* LabChatsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EBF4A05CAA266BD7E9E5F1 /* LabChatsScreen.swift */; };
 		29D5967BC7D465A5B71DE567 /* MvAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C110FE01DFE92E47CE0711DB /* MvAuth */; };
 		32901060072E8A9C330ED41B /* TraxLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96428C69D5DC0A10F132D91 /* TraxLabApp.swift */; };
@@ -39,6 +40,7 @@
 		ADEBF2A1642B52FB25D98D05 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B9526436F83634D0CFE37ACD /* Lab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lab.swift; sourceTree = "<group>"; };
 		B971C57ADB84FED28E6B60ED /* TraxLabUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TraxLabUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C64D3201C428692C2423E427 /* TraxLookUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraxLookUITests.swift; sourceTree = "<group>"; };
 		CD6453535309F9AADCE700BA /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		D06D2FEAE618232FF2820D15 /* TraxLabUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraxLabUITests.swift; sourceTree = "<group>"; };
 		D96428C69D5DC0A10F132D91 /* TraxLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraxLabApp.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				D06D2FEAE618232FF2820D15 /* TraxLabUITests.swift */,
+				C64D3201C428692C2423E427 /* TraxLookUITests.swift */,
 			);
 			path = TraxLabUITests;
 			sourceTree = "<group>";
@@ -225,6 +228,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AE0E68E996D48C3295AD3D1D /* TraxLabUITests.swift in Sources */,
+				03BD43DA4587F7B9D916F3D7 /* TraxLookUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

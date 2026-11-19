@@ -61,3 +61,13 @@ import Testing
         #expect(r?.span.latitudeDelta == 0.02, "a lone person still gets a street-level frame")
     }
 }
+
+@Suite struct HubDetentScalingTests {
+    @Test func rowsGrowWithTextAndNeverExceedTheScreen() {
+        let base = HubDetent.mid.height(available: 800, rowCount: 3)
+        let big = HubDetent.mid.height(available: 800, rowCount: 3, scale: 2)
+        #expect(big > base, "larger text, taller rows")
+        #expect(HubDetent.mid.height(available: 800, rowCount: 3, scale: 4) == 800, "capped at the space there is")
+        #expect(HubDetent.peek.height(available: 800, rowCount: 3, scale: 1) == HubMetrics.header + 8)
+    }
+}

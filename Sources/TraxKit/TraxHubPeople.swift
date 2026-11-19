@@ -111,10 +111,10 @@ struct TraxPersonRow: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(person.displayName).font(.system(size: 17, weight: .bold))
-                    Text(label).font(.system(size: 14)).foregroundStyle(.primary.opacity(0.85)).lineLimit(1)
+                    Text(person.displayName).font(.system(.body, weight: .bold))
+                    Text(label).font(.system(.subheadline)).foregroundStyle(.primary.opacity(0.85)).lineLimit(2)
                     if let sec = person.secondary {
-                        Text(sec).font(.system(size: 14)).foregroundStyle(.secondary)
+                        Text(sec).font(.system(.subheadline)).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
