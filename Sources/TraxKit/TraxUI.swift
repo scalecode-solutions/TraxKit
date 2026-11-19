@@ -55,7 +55,9 @@ public struct TraxAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .task(id: id) { image = TraxAvatarCache.image(id: id, base64: avatarBase64) }
+        // Keyed on the data too: an avatar that arrives (or changes) after the
+        // first render replaces the initials.
+        .task(id: AvatarKey(id: id, base64: avatarBase64)) { image = TraxAvatarCache.image(id: id, base64: avatarBase64) }
     }
 
     private var initials: String {
@@ -64,13 +66,27 @@ public struct TraxAvatar: View {
     }
 }
 
-/// Decodes + caches avatar thumbnails (base64 → UIImage once per person).
+/// Identifies an avatar image cheaply: a new or changed image changes its
+/// length or its tail, without hashing tens of KB on every render.
+private struct AvatarKey: Hashable {
+    let id: UUID?
+    let length: Int
+    let tail: Substring
+    init(id: UUID?, base64: String?) {
+        self.id = id
+        length = base64?.utf8.count ?? 0
+        tail = base64?.suffix(64) ?? ""
+    }
+    var cacheKey: NSString { "\(id?.uuidString ?? "-")-\(length)-\(tail)" as NSString }
+}
+
+/// Decodes + caches avatar thumbnails (base64 → UIImage once per image).
 enum TraxAvatarCache {
     nonisolated(unsafe) private static let cache = NSCache<NSString, UIImage>()
 
     static func image(id: UUID?, base64: String?) -> UIImage? {
         guard let id, let b64 = base64, !b64.isEmpty else { return nil }
-        let key = id.uuidString as NSString
+        let key = AvatarKey(id: id, base64: b64).cacheKey // a new image is a new key
         if let cached = cache.object(forKey: key) { return cached }
         guard let data = Data(base64Encoded: b64), let img = UIImage(data: data) else { return nil }
         cache.setObject(img, forKey: key)

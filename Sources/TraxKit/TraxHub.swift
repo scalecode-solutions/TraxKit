@@ -31,6 +31,7 @@ public struct TraxHub: View {
 
     @State private var pill: HubPill = .people
     @State private var detent: HubDetent = .mid
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverOn
     @State private var dragOffset: CGFloat = 0
     @State private var mapStyle: TraxMapStyle = .standard
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
@@ -44,9 +45,7 @@ public struct TraxHub: View {
 
     // MARK: derived people
 
-    private var contactsByID: [UUID: TraxContact] {
-        Dictionary(contacts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-    }
+    private var contactsByID: [UUID: TraxContact] { sync.contactsByID }
     private func name(for id: UUID) -> String {
         let n = contactsByID[id]?.name
         if let n, !n.isEmpty { return n }
@@ -61,7 +60,24 @@ public struct TraxHub: View {
         }
     }
 
-    private var selfPerson: TraxPerson? {
+    /// The derived people, rebuilt only when what they're made of changes. The
+    /// hub re-renders on every frame of a sheet drag, and each person (status,
+    /// place match, battery) used to be rebuilt several times per render.
+    @State private var peopleMemo = HubPeopleMemo()
+
+    private var derived: HubPeopleMemo.Value {
+        let fix = engine.currentFix
+        let key = HubPeopleMemo.Key(
+            incoming: incoming, contacts: contacts, places: places,
+            fixLat: fix?.lat, fixLng: fix?.lng, battery: fix?.batteryLevel, charging: fix?.batteryCharging,
+            // Statuses age with the clock ("Just now" → "3 min ago"): rebuild at least every 30 s.
+            clock: Int(Date().timeIntervalSince1970 / 30))
+        return peopleMemo.value(for: key) { (buildSelfPerson(), buildPeers()) }
+    }
+    private var selfPerson: TraxPerson? { derived.selfPerson }
+    private var peers: [TraxPerson] { derived.peers }
+
+    private func buildSelfPerson() -> TraxPerson? {
         guard let c = selfCoordinate else { return nil }
         let me = contactsByID[sync.currentUserID]
         let match = placeMatch(c)
@@ -74,7 +90,7 @@ public struct TraxHub: View {
                           atPlace: match != nil, fuzzRadiusM: nil)
     }
 
-    private var peers: [TraxPerson] {
+    private func buildPeers() -> [TraxPerson] {
         incoming.compactMap { s in
             guard let lat = s.lat, let lng = s.lng else { return nil }
             let st = s.status()
@@ -88,6 +104,14 @@ public struct TraxHub: View {
     }
 
     private var people: [TraxPerson] { (selfPerson.map { [$0] } ?? []) + peers }
+    /// What VoiceOver says for a person's pin: who, and where if known.
+    private func pinLabel(_ p: TraxPerson) -> String {
+        var parts = [p.displayName]
+        if let place = p.placeName, p.atPlace { parts.append("at \(place)") }
+        if let s = p.status, !p.isSelf { parts.append(s.lastUpdated) }
+        return parts.joined(separator: ", ")
+    }
+
     private var detailSubject: TraxPerson? { detailID.flatMap { id in people.first { $0.id == id } } }
 
     // MARK: body
@@ -123,6 +147,7 @@ public struct TraxHub: View {
                     Button { showShareSheet = true } label: {
                         Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 17, weight: .medium))
                     }
+                    .accessibilityLabel("Share my location")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -134,6 +159,7 @@ public struct TraxHub: View {
                     } label: {
                         Image(systemName: "gearshape").font(.system(size: 17, weight: .medium))
                     }
+                    .accessibilityLabel("Location settings")
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -147,6 +173,11 @@ public struct TraxHub: View {
                 TraxWeatherDetailView(store: weather, latitude: t.lat, longitude: t.lng, title: "\(t.name)'s Weather")
             }
             .onChange(of: pill) { _, _ in detailID = nil }
+            // The person being viewed stopped sharing (or their share expired):
+            // back to the hub rather than an empty detail panel.
+            .onChange(of: detailID != nil && detailSubject == nil) { _, gone in
+                if gone { detailID = nil }
+            }
             .onChange(of: followKey) { _, _ in followSubject() }
     }
 
@@ -183,6 +214,10 @@ public struct TraxHub: View {
                 Annotation(p.displayName, coordinate: p.coordinate) {
                     AvatarPin(id: p.ownerId, name: p.name, avatar: p.avatar, selected: detailID == p.id, live: p.isLive)
                         .onTapGesture { enterDetail(p) }
+                        .accessibilityElement()
+                        .accessibilityLabel(pinLabel(p))
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { enterDetail(p) }
                 }
             }
         case .places:
@@ -197,6 +232,11 @@ public struct TraxHub: View {
                     TraxWeatherPin(store: weather, latitude: p.coordinate.latitude, longitude: p.coordinate.longitude)
                         .onTapGesture { weatherTarget = WeatherTarget(ownerId: p.ownerId, name: p.name,
                                                                       lat: p.coordinate.latitude, lng: p.coordinate.longitude) }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Weather for \(p.displayName)")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { weatherTarget = WeatherTarget(ownerId: p.ownerId, name: p.name,
+                                                                            lat: p.coordinate.latitude, lng: p.coordinate.longitude) }
                 }
             }
         }
@@ -235,10 +275,12 @@ public struct TraxHub: View {
                 ForEach(TraxMapStyle.allCases) { Text($0.label).tag($0) }
             }
         } label: { controlIcon("square.3.layers.3d") }
+        .accessibilityLabel("Map style")
     }
 
     private var recenterButton: some View {
         Button { recenter() } label: { controlIcon("location.fill") }.buttonStyle(.plain)
+            .accessibilityLabel("Center on me")
     }
 
     private func controlIcon(_ name: String) -> some View {
@@ -255,6 +297,17 @@ public struct TraxHub: View {
             VStack(spacing: 0) {
                 Capsule().fill(.secondary.opacity(0.35)).frame(width: 38, height: 5)
                     .padding(.top, 8).padding(.bottom, 6)
+                    // VoiceOver and Switch Control can't drag: the handle is an
+                    // adjustable control (swipe up/down to resize the panel).
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement()
+                    .accessibilityLabel("Panel")
+                    .accessibilityValue(detent.accessibilityValue)
+                    .accessibilityAdjustableAction { direction in
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                            detent = direction == .increment ? detent.larger : detent.smaller
+                        }
+                    }
                 if detailID == nil {
                     pillRow.padding(.horizontal, 16).padding(.vertical, 8)
                 } else {
@@ -267,7 +320,9 @@ public struct TraxHub: View {
             ScrollView {
                 VStack(spacing: 0) { panelContent }
             }
-            .scrollDisabled(detent != .full)
+            // Dragging scrolls the panel itself until it's full; with VoiceOver
+            // there's no drag, so the rows must always scroll into reach.
+            .scrollDisabled(detent != .full && !voiceOverOn)
         }
         .frame(height: h, alignment: .top)
         .frame(maxWidth: .infinity)
@@ -329,6 +384,8 @@ public struct TraxHub: View {
                         .background(pill == p ? Color.accentColor : Color.accentColor.opacity(0.12), in: .capsule)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(p.title)
+                .accessibilityAddTraits(pill == p ? .isSelected : [])
             }
         }
     }
@@ -338,8 +395,10 @@ public struct TraxHub: View {
             Button { exitDetail() } label: {
                 Image(systemName: "chevron.left").font(.system(size: 16, weight: .semibold))
                     .frame(width: 32, height: 32).background(.ultraThinMaterial, in: .circle)
+                    .frame(width: 44, height: 44).contentShape(.rect)   // 44 pt target around the 32 pt disc
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Back")
             Text(detailSubject?.displayName ?? "Details").font(.system(size: 20, weight: .bold)).lineLimit(1)
             Spacer()
         }
@@ -418,16 +477,51 @@ public struct TraxHub: View {
 
 // MARK: - Hub types
 
+/// Holds the hub's derived people between renders (a reference, so reading it
+/// in a body doesn't count as a state change).
+@MainActor
+final class HubPeopleMemo {
+    struct Key: Equatable {
+        let incoming: [IncomingShareSnapshot]
+        let contacts: [TraxContact]
+        let places: [PlaceSnapshot]
+        let fixLat: Double?, fixLng: Double?
+        let battery: Int?, charging: Bool?
+        let clock: Int
+    }
+    typealias Value = (selfPerson: TraxPerson?, peers: [TraxPerson])
+    private var key: Key?
+    private var cached: Value = (nil, [])
+    private(set) var builds = 0
+
+    func value(for key: Key, build: () -> Value) -> Value {
+        if key != self.key {
+            cached = build()
+            self.key = key
+            builds += 1
+        }
+        return cached
+    }
+}
+
 enum HubPill: String, CaseIterable, Identifiable {
     case people, weather, places
     var id: Self { self }
     var symbol: String {
         switch self { case .people: "person.2.fill"; case .weather: "cloud.sun.fill"; case .places: "building.2.fill" }
     }
+    var title: String {
+        switch self { case .people: "People"; case .weather: "Weather"; case .places: "Places" }
+    }
 }
 
 enum HubDetent: CaseIterable {
     case peek, mid, full
+    var larger: HubDetent { self == .peek ? .mid : .full }
+    var smaller: HubDetent { self == .full ? .mid : .peek }
+    var accessibilityValue: String {
+        switch self { case .peek: "Collapsed"; case .mid: "Half"; case .full: "Expanded" }
+    }
     func height(available: CGFloat, rowCount: Int) -> CGFloat {
         switch self {
         case .peek: HubMetrics.header + 8

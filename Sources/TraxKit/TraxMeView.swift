@@ -20,6 +20,8 @@ struct TraxMeView: View {
     @State private var activity: [ActivityItem] = []
     @State private var preview: PreviewTarget?
     @State private var stoppingAll = false
+    /// The last sharing change that failed, shown under "Who can see me".
+    @State private var actionError: String?
 
     private var coord: CLLocationCoordinate2D { person.coordinate }
     private func contact(_ id: UUID) -> TraxContact? { contacts.first { $0.id == id } }
@@ -111,6 +113,11 @@ struct TraxMeView: View {
                 }
                 .padding(.horizontal, 16).padding(.top, 4)
             }
+            if let actionError {
+                Text(actionError).font(.footnote).foregroundStyle(.red)
+                    .padding(.horizontal, 20)
+                    .accessibilityIdentifier("me.sharing.error")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -170,10 +177,27 @@ struct TraxMeView: View {
     private func changePrecision(_ s: ShareDTO, to p: SharePrecision) {
         guard s.precision != p.rawValue else { return }
         let remaining: Int? = s.expiresAt.map { Int(max(0, Double($0) / 1000 - Date().timeIntervalSince1970)) }
-        Task { try? await sync.startShare(viewer: s.viewerId, precision: p.rawValue, expiresInSeconds: remaining) }
+        run("Couldn't change precision. Try again.") {
+            try await sync.startShare(viewer: s.viewerId, precision: p.rawValue, expiresInSeconds: remaining)
+        }
     }
-    private func stop(_ s: ShareDTO) { Task { try? await sync.stopShare(id: s.id) } }
-    private func goInvisible() { stoppingAll = true; Task { defer { stoppingAll = false }; try? await sync.stopAll() } }
+    private func stop(_ s: ShareDTO) { run("Couldn't stop sharing. Try again.") { try await sync.stopShare(id: s.id) } }
+    private func goInvisible() {
+        stoppingAll = true
+        run("Couldn't stop sharing with everyone. Try again.") {
+            defer { stoppingAll = false }
+            try await sync.stopAll()
+        }
+    }
+
+    /// Runs a sharing change and says so if it fails (it used to fail silently,
+    /// leaving someone seeing you after you tapped Stop).
+    private func run(_ failure: String, _ action: @escaping () async throws -> Void) {
+        actionError = nil
+        Task {
+            do { try await action() } catch is CancellationError {} catch { actionError = failure }
+        }
+    }
 
     // MARK: activity (own timeline, today)
 
@@ -227,11 +251,13 @@ struct TraxMeView: View {
     private var placesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("MY PLACES")
-            if places.isEmpty {
+            // Only this person's own places: the empty state and the grid agree.
+            let owned = places.filter { $0.ownerID == person.ownerId }
+            if owned.isEmpty {
                 Text("No saved places.").font(.system(size: 14)).foregroundStyle(.secondary).padding(.horizontal, 20)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(places.filter { $0.ownerID == person.ownerId }) { p in
+                    ForEach(owned) { p in
                         HStack(spacing: 10) {
                             Text(p.emoji ?? "📍").font(.system(size: 22)).frame(width: 34, height: 34)
                             VStack(alignment: .leading, spacing: 2) {

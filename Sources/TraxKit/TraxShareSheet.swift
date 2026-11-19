@@ -44,7 +44,8 @@ struct TraxShareSheet: View {
     let engine: TraxEngine
     private var sync: TraxSync { engine.sync }
 
-    private var contacts: [TraxContact] { engine.sync.contacts }
+    /// Friends I can share with: the directory includes me, and I can't share with myself.
+    private var contacts: [TraxContact] { engine.sync.contacts.filter { $0.id != engine.currentUserID } }
     @Environment(\.dismiss) private var dismiss
 
     @State private var duration: ShareDuration = .fifteenMinutes
