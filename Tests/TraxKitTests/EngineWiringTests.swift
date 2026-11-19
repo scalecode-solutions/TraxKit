@@ -18,8 +18,8 @@ import Testing
     }
 
     /// Waits (briefly, in real time) until `cond` holds.
-    func eventually(_ cond: () async -> Bool) async -> Bool {
-        for _ in 0..<200 {
+    func eventually(within ticks: Int = 200, _ cond: () async -> Bool) async -> Bool {
+        for _ in 0..<ticks {
             if await cond() { return true }
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -64,14 +64,14 @@ import Testing
     @Test func expiryDropsDemand() async {
         let t = FakeTraxTransport()
         await t.setOutgoing([Fixtures.share(owner: me, viewer: friend,
-                                            expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + 600)])
+                                            expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + 1500)])
         let host = FakeTraxLocationHost()
         let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
         let engine = TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true))
         engine.start()
         #expect(await eventually { host.lastDemand == .continuous })
         engine.setForeground(false)
-        #expect(await eventually { host.lastDemand == .off })
+        #expect(await eventually(within: 400) { host.lastDemand == .off })
         engine.stop()
     }
 

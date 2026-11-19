@@ -244,6 +244,13 @@ public final class TraxStore {
         return (try? context.fetch(fetch)) ?? []
     }
 
+    /// Drop an owner's enter/leave events from before `cutoffMs` (nil = all).
+    func deleteTransitions(ownerID: UUID, before cutoffMs: Int64?) {
+        let cut = cutoffMs ?? .max
+        try? context.delete(model: TransitionEntity.self,
+                            where: #Predicate { $0.ownerId == ownerID && $0.createdAt < cut })
+    }
+
     public func save() {
         guard context.hasChanges else { return }
         try? context.save()

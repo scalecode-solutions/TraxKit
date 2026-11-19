@@ -32,7 +32,7 @@ private struct LabConversation: View {
     @State private var hold = LabMapHold()
 
     var body: some View {
-        let rel = session.engine.bridge.relationship(with: friend)
+        let rel = session.engine.relationship(with: friend)
         List {
             Section("They share with me") {
                 if let s = rel.incoming {

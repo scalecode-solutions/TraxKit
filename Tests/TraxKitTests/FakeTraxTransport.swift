@@ -80,9 +80,17 @@ actor FakeTraxTransport: TraxTransport {
         tracked.append(body)
         return trackAck
     }
+    /// Each startShare body, in order.
+    private(set) var startBodies: [StartShareBody] = []
+    var lastStartShare: StartShareBody? { startBodies.last }
+    /// Like the server: a live share to the same viewer is updated in place.
     func startShare(_ body: StartShareBody) async throws -> ShareDTO {
         try await enter("startShare")
-        let s = Fixtures.share(owner: meContact.id, viewer: body.viewer)
+        startBodies.append(body)
+        let id = outgoing.first { $0.viewerId == body.viewer }?.id ?? UUID()
+        let s = Fixtures.share(id: id, owner: meContact.id, viewer: body.viewer, precision: body.precision ?? "exact",
+                               expiresAt: body.expiresIn.map { Fixtures.nowMs(TimeInterval($0)) })
+        outgoing.removeAll { $0.viewerId == body.viewer }
         outgoing.append(s)
         return s
     }
@@ -119,9 +127,14 @@ actor FakeTraxTransport: TraxTransport {
         try await enter("places")
         return placeList
     }
+    private(set) var lastPlaceBody: PlaceBody?
     func createPlace(_ body: PlaceBody) async throws -> PlaceDTO {
         try await enter("createPlace")
-        let p = Fixtures.place(owner: meContact.id, name: body.name, lat: body.lat, lng: body.lng)
+        lastPlaceBody = body
+        let f = Fixtures.place(owner: meContact.id, name: body.name, lat: body.lat, lng: body.lng)
+        let p = PlaceDTO(id: f.id, ownerId: f.ownerId, name: f.name, type: body.type, lat: f.lat, lng: f.lng,
+                         radiusM: body.radiusM, emoji: body.emoji, address: body.address, sharedWith: [],
+                         createdAt: f.createdAt, updatedAt: f.updatedAt)
         placeList.append(p)
         return p
     }
@@ -133,8 +146,23 @@ actor FakeTraxTransport: TraxTransport {
         try await enter("deletePlace")
         placeList.removeAll { $0.id == id }
     }
-    func sharePlace(id: UUID, viewer: UUID) async throws { try await enter("sharePlace") }
-    func unsharePlace(id: UUID, viewer: UUID) async throws { try await enter("unsharePlace") }
+    func sharePlace(id: UUID, viewer: UUID) async throws {
+        try await enter("sharePlace")
+        setSharedWith(id) { if !$0.contains(viewer) { $0.append(viewer) } }
+    }
+    func unsharePlace(id: UUID, viewer: UUID) async throws {
+        try await enter("unsharePlace")
+        setSharedWith(id) { $0.removeAll { $0 == viewer } }
+    }
+    private func setSharedWith(_ id: UUID, _ change: (inout [UUID]) -> Void) {
+        guard let i = placeList.firstIndex(where: { $0.id == id }) else { return }
+        let p = placeList[i]
+        var w = p.sharedWith ?? []
+        change(&w)
+        placeList[i] = PlaceDTO(id: p.id, ownerId: p.ownerId, name: p.name, type: p.type, lat: p.lat, lng: p.lng,
+                                radiusM: p.radiusM, emoji: p.emoji, address: p.address, sharedWith: w,
+                                createdAt: p.createdAt, updatedAt: p.updatedAt)
+    }
     func postTransition(_ body: TransitionBody) async throws {
         try await enter("postTransition")
         postedTransitions.append(body)
