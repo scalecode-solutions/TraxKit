@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Full forecast for a coordinate — the Tier 2 drill-down. Pushed from the Me tab
+/// Full forecast for a coordinate — the Tier 2 drill-down. Pushed from a person's detail
 /// (own weather) and a sharer's glance card (their weather). Faithful to the earlier in-app version's
 /// in-panel stack (now → precip → hourly 24h → 10-day → metrics) but as its own
 /// navigable screen rather than crammed into a sheet.

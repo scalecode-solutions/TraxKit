@@ -1,4 +1,6 @@
 import Foundation
+import CoreLocation
+import MapKit
 import Testing
 @testable import TraxKit
 
@@ -39,4 +41,23 @@ import Testing
     }
 
     @Test func noName() { #expect(TraxAvatar.initials(nil) == "?") }
+}
+
+@MainActor
+@Suite struct HubFramingTests {
+    @Test func fitsEveryoneWithMargin() throws {
+        let me = CLLocationCoordinate2D(latitude: 37.32, longitude: -122.03)
+        let friend = CLLocationCoordinate2D(latitude: 37.40, longitude: -121.90)
+        let r = try #require(TraxHub.fitting([me, friend]))
+        for c in [me, friend] {
+            #expect(abs(c.latitude - r.center.latitude) < r.span.latitudeDelta / 2)
+            #expect(abs(c.longitude - r.center.longitude) < r.span.longitudeDelta / 2)
+        }
+    }
+
+    @Test func oneOrNone() {
+        #expect(TraxHub.fitting([]) == nil)
+        let r = TraxHub.fitting([CLLocationCoordinate2D(latitude: 30, longitude: -90)])
+        #expect(r?.span.latitudeDelta == 0.02, "a lone person still gets a street-level frame")
+    }
 }

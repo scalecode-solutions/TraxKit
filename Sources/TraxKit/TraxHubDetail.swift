@@ -151,7 +151,9 @@ struct TraxHubDetailContent: View {
             weatherRow
         } else {
             Color.clear.frame(height: 0)
-                .task(id: "\(lat),\(lng)") { await weather.refresh(latitude: lat, longitude: lng) }
+                .task(id: TraxWeatherStore.regionKey(latitude: lat, longitude: lng)) {
+                    await weather.refresh(latitude: lat, longitude: lng)
+                }
         }
     }
 

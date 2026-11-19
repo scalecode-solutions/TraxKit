@@ -35,6 +35,7 @@ public struct TraxHub: View {
     @State private var dragOffset: CGFloat = 0
     @State private var mapStyle: TraxMapStyle = .standard
     @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var framedEveryone = false
     @State private var detailID: String?           // nil = hub; else a person id
     @State private var weatherPage: TraxWeatherPage = .mine
     @State private var followSpan = MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
@@ -179,6 +180,16 @@ public struct TraxHub: View {
                 if gone { detailID = nil }
             }
             .onChange(of: followKey) { _, _ in followSubject() }
+            // On open, frame everyone sharing with me as well as me, once: the
+            // first time their locations are in. After that the camera is the
+            // user's (or follows a selected person).
+            .onChange(of: peers.map(\.id), initial: true) { _, ids in
+                guard !framedEveryone, detailID == nil, !ids.isEmpty else { return }
+                framedEveryone = true
+                if let region = Self.fitting(people.map(\.coordinate)) {
+                    withAnimation(.easeInOut) { camera = .region(region) }
+                }
+            }
     }
 
     @ViewBuilder private var errorBanner: some View {
@@ -404,6 +415,17 @@ public struct TraxHub: View {
     }
 
     // MARK: camera + detail transitions
+
+    /// A region that shows every coordinate with some margin (nil for none).
+    static func fitting(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion? {
+        guard !coords.isEmpty else { return nil }
+        let lats = coords.map(\.latitude), lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(latitude: (lats.min()! + lats.max()!) / 2,
+                                            longitude: (lngs.min()! + lngs.max()!) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max(0.02, (lats.max()! - lats.min()!) * 1.6),
+                                    longitudeDelta: max(0.02, (lngs.max()! - lngs.min()!) * 1.6))
+        return MKCoordinateRegion(center: center, span: span)
+    }
 
     private var followKey: String {
         guard detailID != nil, let c = detailSubject?.coordinate else { return "" }

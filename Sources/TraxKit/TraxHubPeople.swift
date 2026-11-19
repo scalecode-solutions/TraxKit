@@ -190,7 +190,10 @@ struct AvatarPin: View {
             ZStack(alignment: .topTrailing) {
                 TraxAvatar(id: id, name: name, avatarBase64: avatar, size: selected ? 48 : 40)
                     .overlay(Circle().stroke(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.white), lineWidth: 3))
-                    .background(Circle().fill(.white).padding(-1))
+                    // Opaque behind the avatar's translucent tint wash, so map tiles
+                    // don't show through; the system background (black in dark
+                    // mode), which is what ContrastTests measures the wash over.
+                    .background(Circle().fill(.background).padding(-1))
                     .shadow(radius: 3, y: 1)
                     .overlay(alignment: .bottomTrailing) { presenceDot }
                 if let t = tempText {
