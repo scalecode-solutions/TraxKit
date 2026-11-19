@@ -5,7 +5,8 @@
 #   scripts/look.sh <test-account-uuid> [friend-uuid]
 #
 # Env: SIM (default TraxLab-iPhone), DD, SERVER (the mvTrax checkout), BASE.
-# Leaves the simulator in light mode at the large (default) text size.
+# Puts the simulator's scheme and text size back as it found them (a Lab sim
+# may carry a deliberate setting, e.g. extra-extra-large text).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 USER_ID=${1:?usage: scripts/look.sh <test-account-uuid> [friend-uuid]}
@@ -21,6 +22,10 @@ KEY=$(sed -n 's/^TOKEN_KEY=//p' "$SERVER/.env")
 TOKEN=$(cd "$SERVER" && go run ./cmd/minttoken "$KEY" "$USER_ID")
 OUT=/tmp/traxlab-look
 rm -rf "$OUT"
+WAS_SIZE=$(xcrun simctl ui "$SIM_ID" content_size)
+WAS_LOOK=$(xcrun simctl ui "$SIM_ID" appearance)
+restore() { xcrun simctl ui "$SIM_ID" appearance "$WAS_LOOK"; xcrun simctl ui "$SIM_ID" content_size "$WAS_SIZE"; }
+trap restore EXIT
 for mode in light dark xxxl; do
   case $mode in
     light) xcrun simctl ui "$SIM_ID" appearance light; xcrun simctl ui "$SIM_ID" content_size large ;;
@@ -36,6 +41,4 @@ for mode in light dark xxxl; do
       | grep -E "Test Case .*(passed|failed)|error:" || true)
   xcrun xcresulttool export attachments --path "$RESULT" --output-path "$OUT/$mode" >/dev/null 2>&1 || true
 done
-xcrun simctl ui "$SIM_ID" appearance light
-xcrun simctl ui "$SIM_ID" content_size large
 find "$OUT" -name "*.png" | sort
