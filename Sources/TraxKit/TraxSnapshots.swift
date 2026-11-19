@@ -40,7 +40,7 @@ struct IncomingShareSnapshot: Equatable, Sendable {
     func status(now: Date = Date()) -> TraxMemberStatus {
         TraxMemberStatus.make(speedMps: speed, motion: motion, batteryLevel: batteryLevel,
                               batteryCharging: batteryCharging ?? false,
-                              recordedAtMs: locRecordedAt, now: now)
+                              recordedAtMs: locRecordedAt, precision: precision, now: now)
     }
 
     /// The bridge's public shape. Liveness is computed at read time.

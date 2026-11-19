@@ -160,8 +160,11 @@ struct TraxPersonMap: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("person.status")
             HStack(spacing: 8) {
-                if let ms = summary?.lastUpdatedMs {
-                    Text("\(Date(timeIntervalSince1970: Double(ms) / 1000), style: .relative) ago")
+                if let s = summary, s.lastUpdatedMs != nil {
+                    // The same wording as the hub: "Not updating" only for an
+                    // exact share, and no minute-level time for an approximate one.
+                    Text(TraxMemberStatus.make(speedMps: nil, motion: nil, batteryLevel: nil, batteryCharging: false,
+                                               recordedAtMs: s.lastUpdatedMs, precision: s.precision).lastUpdated)
                         .accessibilityIdentifier("person.updated")
                 }
                 if let battery = summary?.battery {

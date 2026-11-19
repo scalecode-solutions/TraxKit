@@ -49,6 +49,9 @@ import Testing
         #expect(moving?.accuracy == kCLLocationAccuracyBest && moving?.background == true)
         let still = E.profile(for: .continuous, stationary: true, hasBackgroundMode: true)
         #expect(still?.accuracy == kCLLocationAccuracyHundredMeters && still?.background == true)
+        // Exact has no distance filter: a filter would stop a still phone's fixes,
+        // and with no fix nothing is posted (MVTRAX-22). UploadPolicy thins.
+        #expect(moving?.distanceFilter == kCLDistanceFilterNone && still?.distanceFilter == kCLDistanceFilterNone)
         let noMode = E.profile(for: .continuous, stationary: false, hasBackgroundMode: false)
         #expect(noMode?.background == false, "without the location background mode, never ask (it would crash)")
     }
