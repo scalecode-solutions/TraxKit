@@ -135,7 +135,7 @@ public final class TraxLocationStore {
     /// are safe to hand out here because the bridge and the host share the
     /// MainActor. Reads live SwiftData — call after `sync.loadPlaces()` for
     /// server-fresh contents.
-    public func allPlaces() -> [PlaceEntity] {
+    func allPlaces() -> [PlaceEntity] {
         _ = sync.revision   // observe the store → re-read it when places change
         return store.allPlaces()
     }

@@ -472,6 +472,24 @@ public final class TraxSync {
         mergeTransitions([dto])
     }
 
+    // MARK: - Clear history
+
+    /// Delete my history before `before` (nil = all) on the server: points and
+    /// what's derived from them (visits, trips, transitions). Then drop my own
+    /// crossings from the local store and the live buffer, so the "You arrived"
+    /// rows go with them. Returns the number of points the server deleted.
+    func clearMyHistory(before: Date?) async throws -> Int {
+        let cutoffMs = before.map { Int64($0.timeIntervalSince1970 * 1000) }
+        let gen = generation
+        let n = try await transport.clearHistory(before: cutoffMs)
+        guard current(gen) else { return Int(n.count) }
+        store.deleteTransitions(ownerID: currentUserID, before: cutoffMs)
+        store.save()
+        recentTransitions.removeAll { $0.ownerId == currentUserID && $0.createdAt < (cutoffMs ?? .max) }
+        publish()
+        return Int(n.count)
+    }
+
     // MARK: - Timeline (any owner, per-day)
 
     /// One day's curated timeline for an owner (self or a friend who shares with

@@ -6,15 +6,16 @@ import SwiftData
 /// session (a `TraxConfig` + a `TraxLocationHost` device engine), then drives
 /// `start()`/`stop()` from its session lifecycle. The engine owns the store + sync
 /// + bridge, wires the host seam both ways, and runs the app-wide feed poll. The UI
-/// (`TraxRootView`) renders from it; chat reads `bridge`.
+/// (`TraxRootView`) renders from it; hosts read and act through its public API
+/// (TraxEngine+API.swift).
 ///
 /// Cold-launch contract: the host wakes on a geofence crossing and calls `start()`;
 /// the transition stream then delivers the crossing and the kit records + posts it.
 @MainActor
 @Observable
 public final class TraxEngine {
-    public let sync: TraxSync
-    public let bridge: TraxLocationStore
+    let sync: TraxSync
+    let bridge: TraxLocationStore
     public let weather: TraxWeatherStore
     public let geocoder: TraxGeocoder
 
