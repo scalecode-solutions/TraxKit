@@ -9,7 +9,7 @@ struct TraxShareControls: View {
     let personName: String
     let appearance: TraxAppearance
 
-    @State private var duration: ShareDuration = .fifteenMinutes
+    @State private var duration: DurationChoice = .preset(.fifteenMinutes)
     @State private var precision: SharePrecision = .exact
     @State private var busy = false
     @State private var error: String?
@@ -63,7 +63,10 @@ struct TraxShareControls: View {
     private var sharingButtons: some View {
         HStack(spacing: 10) {
             Button("Change") {
-                if let s = outgoing { precision = SharePrecision(rawValue: s.precision?.rawValue ?? "exact") ?? .exact }
+                if let s = outgoing {
+                    precision = SharePrecision(rawValue: s.precision?.rawValue ?? "exact") ?? .exact
+                    duration = DurationChoice.initial(for: s)
+                }
                 changing = true
             }
             .buttonStyle(.bordered)
@@ -92,7 +95,9 @@ struct TraxShareControls: View {
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 12) {
             picker("Duration", selection: $duration, id: "share.duration") {
-                ForEach(ShareDuration.allCases) { Text($0.label).tag($0) }
+                ForEach(DurationChoice.options(changing: changing ? outgoing : nil), id: \.self) {
+                    Text($0.label).tag($0)
+                }
             }
             picker("Precision", selection: $precision, id: "share.precision") {
                 ForEach(SharePrecision.allCases) { Text($0.label).tag($0) }
@@ -150,7 +155,7 @@ struct TraxShareControls: View {
             do {
                 try await engine.startSharing(
                     with: personID, precision: TraxPrecision(rawValue: precision.rawValue) ?? .exact,
-                    duration: duration.expiresInSeconds.map { .seconds($0) })
+                    duration: duration.duration(current: outgoing, now: Date()))
                 changing = false
             } catch {
                 self.error = "Couldn't update sharing. Try again."
@@ -164,6 +169,45 @@ struct TraxShareControls: View {
             defer { busy = false }
             do { try await engine.stopSharing(with: personID) }
             catch { self.error = "Couldn't stop sharing. Try again." }
+        }
+    }
+}
+
+/// The duration picker's choices. Changing a timed share offers to keep its
+/// current end; without that, changing only the precision would also reset
+/// how long it lasts (starting a share again replaces its expiry).
+enum DurationChoice: Hashable {
+    case preset(ShareDuration)
+    case keepCurrent
+
+    var label: String {
+        switch self {
+        case .preset(let d): d.label
+        case .keepCurrent: "Keep current end"
+        }
+    }
+
+    /// Changing `share`: keep its end if it has one, else "until I stop".
+    static func initial(for share: TraxOutgoingShare) -> DurationChoice {
+        share.expiresAt == nil ? .preset(.indefinite) : .keepCurrent
+    }
+
+    /// What to offer: the presets, plus "keep current end" when changing a timed share.
+    static func options(changing share: TraxOutgoingShare?) -> [DurationChoice] {
+        let presets = ShareDuration.allCases.map(DurationChoice.preset)
+        return share?.expiresAt != nil ? [.keepCurrent] + presets : presets
+    }
+
+    /// The duration to send: a preset's length, nil for until-I-stop, or what's
+    /// left of the current share (at least a minute, so a share about to end
+    /// isn't sent a zero).
+    func duration(current: TraxOutgoingShare?, now: Date) -> Duration? {
+        switch self {
+        case .preset(let d):
+            return d.expiresInSeconds.map { .seconds($0) }
+        case .keepCurrent:
+            guard let end = current?.expiresAt else { return nil }
+            return .seconds(max(60, Int(end.timeIntervalSince(now).rounded(.up))))
         }
     }
 }

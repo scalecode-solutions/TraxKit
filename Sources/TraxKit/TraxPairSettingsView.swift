@@ -11,6 +11,9 @@ public struct TraxPairSettingsView: View {
 
     /// Optimistic toggle state while a share/unshare round-trip flies.
     @State private var pending: [UUID: Bool] = [:]
+    /// The latest request per place: only it clears `pending`, so two quick
+    /// toggles don't let the first one's answer show a stale state.
+    @State private var latest: [UUID: UUID] = [:]
     @State private var error: String?
 
     public init(engine: TraxEngine, otherID: UUID, appearance: TraxAppearance = .standard) {
@@ -63,6 +66,8 @@ public struct TraxPairSettingsView: View {
             set: { on in
                 pending[place.id] = on
                 error = nil
+                let request = UUID()
+                latest[place.id] = request
                 Task {
                     do {
                         if on { try await engine.sharePlace(place.id, with: otherID) }
@@ -70,7 +75,8 @@ public struct TraxPairSettingsView: View {
                     } catch {
                         self.error = "Couldn't update sharing. Try again."
                     }
-                    pending[place.id] = nil   // the published places are the truth again
+                    // The published places are the truth again, once the last toggle lands.
+                    if latest[place.id] == request { pending[place.id] = nil; latest[place.id] = nil }
                 }
             })
     }

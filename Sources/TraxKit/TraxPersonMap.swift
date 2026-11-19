@@ -21,6 +21,7 @@ struct TraxPersonMap: View {
     let appearance: TraxAppearance
 
     @State private var camera: MapCameraPosition = .automatic
+    @State private var placeError: String?
     @ScaledMetric(relativeTo: .body) private var markerSize: CGFloat = 34
 
     private var name: String {
@@ -204,11 +205,18 @@ struct TraxPersonMap: View {
                     Text("\(place.emoji.map { "\($0) " } ?? "")\(place.name)").font(.subheadline)
                     Spacer()
                     Button("Stop", role: .destructive) {
-                        Task { try? await engine.unsharePlace(place.id, with: personID) }
+                        placeError = nil
+                        Task {
+                            do { try await engine.unsharePlace(place.id, with: personID) }
+                            catch { placeError = "Couldn't stop sharing \(place.name). Try again." }
+                        }
                     }
                     .buttonStyle(.borderless)
                     .frame(minHeight: 44)
                 }
+            }
+            if let placeError {
+                Text(placeError).font(.footnote).foregroundStyle(.red)
             }
         }
     }
