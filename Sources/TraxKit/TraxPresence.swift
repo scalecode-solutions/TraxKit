@@ -46,7 +46,7 @@ public struct TraxMemberStatus: Sendable {
     public let speedMph: Int?       // nil when not moving / unknown
     public let battery: TraxBatteryStatus
     public let lastUpdated: String  // "Just now", "3 min ago", "Not updating"
-    public let isStale: Bool        // fix older than the stale threshold
+    public let isStale: Bool        // an update was expected and didn't come
     public let isLive: Bool         // fresh fix — show the live/online dot
 
     /// The one-line status, Life360-style: "Driving · 68 mph" or "Walking".
@@ -57,13 +57,19 @@ public struct TraxMemberStatus: Sendable {
         return activity.label
     }
 
-    /// Stale threshold — beyond this, we say the fix isn't updating.
+    /// Stale threshold — beyond this, an exact share isn't updating.
     static let staleAfter: TimeInterval = 10 * 60
     /// Live threshold — a fix this fresh lights the "live/online" dot.
     static let liveWithin: TimeInterval = 2 * 60
 
+    /// "Not updating" means an update was expected and didn't come, not that the
+    /// phone hasn't moved. Only an exact share is expected to update steadily
+    /// (its sharer's phone sends a heartbeat even while still). A place or
+    /// approximate share legitimately goes quiet for hours while the phone sits
+    /// still, so its age is shown plainly and never called stale.
     public static func make(speedMps: Double?, motion: String?, batteryLevel: Int?,
-                            batteryCharging: Bool, recordedAtMs: Int64?, now: Date = Date()) -> TraxMemberStatus {
+                            batteryCharging: Bool, recordedAtMs: Int64?, precision: String = "exact",
+                            now: Date = Date()) -> TraxMemberStatus {
         let activity = activity(motion: motion, speedMps: speedMps)
         var mph: Int?
         if let s = speedMps, s > 0.5 { mph = Int((s * 2.23694).rounded()) }
@@ -75,9 +81,12 @@ public struct TraxMemberStatus: Sendable {
         var live = false
         if let ms = recordedAtMs {
             let age = now.timeIntervalSince1970 - Double(ms) / 1000
-            stale = age > staleAfter
+            let steady = precision == "exact"
+            stale = steady && age > staleAfter
             live = age <= liveWithin
-            lastUpdated = stale ? "Not updating" : relative(age)
+            // An approximate share's time is as coarse as its place, so it can't
+            // be used to pin down when someone arrived somewhere.
+            lastUpdated = stale ? "Not updating" : precision == "approx" ? coarseRelative(age) : relative(age)
         }
         return TraxMemberStatus(activity: activity, speedMph: mph, battery: battery,
                                 lastUpdated: lastUpdated, isStale: stale, isLive: live)
@@ -100,6 +109,12 @@ public struct TraxMemberStatus: Sendable {
         return .walking
     }
 
+    private static func coarseRelative(_ age: TimeInterval) -> String {
+        if age < 3600 { return "Within the hour" }
+        if age < 7200 { return "1 hr ago" }
+        return "\(Int(age / 3600)) hr ago"
+    }
+
     private static func relative(_ age: TimeInterval) -> String {
         if age < 45 { return "Just now" }
         if age < 90 { return "1 min ago" }
@@ -113,6 +128,7 @@ extension ShareEntity {
     /// This sharer's current status, evaluated now.
     func status(now: Date = Date()) -> TraxMemberStatus {
         TraxMemberStatus.make(speedMps: speed, motion: motion, batteryLevel: batteryLevel,
-                              batteryCharging: batteryCharging ?? false, recordedAtMs: locRecordedAt, now: now)
+                              batteryCharging: batteryCharging ?? false, recordedAtMs: locRecordedAt,
+                              precision: precision, now: now)
     }
 }

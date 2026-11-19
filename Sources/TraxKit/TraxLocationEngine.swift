@@ -45,9 +45,13 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
     /// Where the rolling-20 was last ranked from; re-ranked after moving `rerankAfterMeters`.
     private var rankedFrom: CLLocation?
     static let rerankAfterMeters: CLLocationDistance = 1_000
-    /// While continuously tracking: GPS ignores moves under this (the upload
-    /// policy decides what's posted; this saves the radio work).
-    nonisolated static let continuousDistanceFilter: CLLocationDistance = 10
+    /// Exact (`.continuous`): no distance filter. A filter would stop a still
+    /// phone's fixes entirely, and with no fix nothing is posted, so its viewers
+    /// would see "Not updating" (MVTRAX-22). UploadPolicy decides what's posted
+    /// (moved, motion changed, or the 90 s heartbeat); the power knob is
+    /// accuracy, which drops to ~100 m while still, so the cost is wakeups,
+    /// not GPS.
+    nonisolated static let continuousDistanceFilter: CLLocationDistance = kCLDistanceFilterNone
     private let log = Logger(subsystem: "TraxKit", category: "location")
 
     /// - Parameter policy: host hooks for wrapping permission prompts. Defaults to
@@ -58,6 +62,8 @@ public final class TraxLocationEngine: NSObject, TraxLocationHost, CLLocationMan
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = Self.continuousDistanceFilter
+        // Never let iOS pause updates when the phone is still: an exact sharer's
+        // heartbeat (MVTRAX-22) depends on fixes continuing while it sits still.
         manager.pausesLocationUpdatesAutomatically = false
     }
 
