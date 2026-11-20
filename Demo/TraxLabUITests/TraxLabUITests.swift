@@ -118,6 +118,13 @@ final class TraxLabUITests: XCTestCase {
     /// (the lowest 25 pt, above the very edge): ~4 over glass, far more over
     /// an unblurred map.
     func bottomBandSpread(_ shot: XCUIScreenshot) -> Double {
+        let height = app.windows.firstMatch.frame.height
+        return bandSpread(shot, fromTop: height - 25, height: 21)
+    }
+
+    /// The standard deviation of the grey levels in a full-width band, `height`
+    /// pt tall, starting `fromTop` pt down the screen.
+    func bandSpread(_ shot: XCUIScreenshot, fromTop top: Double, height: Double) -> Double {
         guard let cg = shot.image.cgImage else { return .infinity }
         let w = cg.width, h = cg.height
         var px = [UInt8](repeating: 0, count: w * h)
@@ -125,9 +132,9 @@ final class TraxLabUITests: XCTestCase {
                             space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0)!
         ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
         let scale = Double(h) / Double(app.windows.firstMatch.frame.height)
-        let band = Int(25 * scale), skip = Int(4 * scale)
+        let y0 = max(0, Int(top * scale)), y1 = min(h, Int((top + height) * scale))
         var values: [Double] = []
-        for y in stride(from: h - band, to: h - skip, by: 2) {
+        for y in stride(from: y0, to: y1, by: 2) {
             for x in stride(from: 0, to: w, by: 2) { values.append(Double(px[y * w + x])) }
         }
         let mean = values.reduce(0, +) / Double(values.count)
@@ -147,7 +154,13 @@ final class TraxLabUITests: XCTestCase {
         // uniform, not the sharp map (roads, labels) a gap shows. (With a tab
         // bar the band is the bar's icons, so this check is for this path.)
         // Fails on 0.7.1's card: spread 33 against ~4 over glass.
-        let spread = bottomBandSpread(app.screenshot())
+        let shot = app.screenshot()
+        // Control: the map itself must have rendered (an untiled map is plain
+        // and would pass the check below on a broken card). A band of map just
+        // under the navigation bar, well above the card.
+        let mapSpread = bandSpread(shot, fromTop: 140, height: 60)
+        XCTAssertGreaterThan(mapSpread, 12, "the map didn't render (pixel spread \(mapSpread)): can't judge the card's edge")
+        let spread = bottomBandSpread(shot)
         XCTAssertLessThan(spread, 12, "the bottom edge shows the map under the card (pixel spread \(spread))")
     }
 
