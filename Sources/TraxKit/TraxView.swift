@@ -19,6 +19,8 @@ public struct TraxAppearance: Sendable {
     public var clearHistory: String
     /// The footer under location access in TraxSettingsView.
     public var accessFooter: String
+    /// The panels over the map until the person picks in Location settings.
+    public var panelStyle: TraxPanelStyle
     /// Text on a fill of the host's tint (the share button). The kit can't
     /// read the tint, so the host picks what holds 4.5:1 on it, per scheme
     /// if its tint changes with the scheme. White by default.
@@ -31,7 +33,8 @@ public struct TraxAppearance: Sendable {
                 stopAllSharing: String = "Stop sharing with everyone",
                 clearHistory: String = "Clear location history",
                 accessFooter: String = "Location is only used while you share it with someone, or for arrivals at your places.",
-                onTint: Color = .white) {
+                onTint: Color = .white,
+                panelStyle: TraxPanelStyle = .clear) {
         self.notSharing = notSharing
         self.shareButton = shareButton
         self.sharingWith = sharingWith
@@ -40,6 +43,7 @@ public struct TraxAppearance: Sendable {
         self.clearHistory = clearHistory
         self.accessFooter = accessFooter
         self.onTint = onTint
+        self.panelStyle = panelStyle
     }
 
     public static let standard = TraxAppearance()

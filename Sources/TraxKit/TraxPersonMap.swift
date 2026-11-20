@@ -112,6 +112,12 @@ struct TraxPersonMap: View {
     // MARK: card
 
     private func card(maxHeight: CGFloat) -> some View {
+        TraxPanelStyleReader(fallback: appearance.panelStyle) { style in
+            cardBody(maxHeight: maxHeight, style: style)
+        }
+    }
+
+    private func cardBody(maxHeight: CGFloat, style: TraxPanelStyle) -> some View {
         ScrollView {
             TraxPersonCardContent(engine: engine, personID: personID, appearance: appearance)
                 .padding(18)
@@ -127,9 +133,7 @@ struct TraxPersonMap: View {
         // empty glass at the top (MVTRAX-39). Only the glass is drawn on to
         // the screen's edge, so no strip of map shows below the card.
         .background {
-            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
-                .fill(.clear)
-                .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
+            TraxPanelSurface(style: style, shape: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
                 .ignoresSafeArea(.container, edges: .bottom)
         }
         .accessibilityIdentifier("person.card")

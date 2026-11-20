@@ -213,6 +213,42 @@ final class TraxLabUITests: XCTestCase {
         XCTAssert(start.waitForExistence(timeout: 15), "the share didn't stop")
     }
 
+    /// The "Map panels" choice in settings: each level is offered, a pick
+    /// sticks (the row shows it), and the person card still shows with it.
+    /// Puts the choice back to Clear at the end (it persists on the device).
+    func testSettingsPanelStyle() throws {
+        let row = reachable(app.buttons["settings.panelStyle"], "Map panels")
+        for level in ["Smoked", "Strong", "Solid", "Clear"] {
+            row.tap()
+            let option = app.buttons[level].firstMatch
+            XCTAssert(option.waitForExistence(timeout: 5), "no \(level) option")
+            option.tap()
+            XCTAssert(row.label.contains(level), "the row doesn't show \(level): \(row.label)")
+            if level == "Strong" { shot("settings-panel-style") }
+        }
+    }
+
+    /// Each "Map panels" level on a person's card, for eyes (Light/Dark is
+    /// the simulator's): relaunched with the level stored, as a pick in
+    /// settings would leave it. Starts and stops a share on the LOCAL server.
+    func testPanelStylesLook() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
+        for level in ["clear", "smoked", "strong", "solid"] {
+            app.terminate()
+            app.launchArguments = ["-trax.panelStyle", level]
+            app.launch()
+            app.tabBars.buttons["Chats"].tap()
+            reachable(app.buttons["conversation.map"], "map link").tap()
+            let start = app.buttons["share.start"], stop = app.buttons["share.stop"]
+            XCTAssert(start.waitForExistence(timeout: 15) || stop.exists, "no share controls")
+            if !stop.exists { start.tap() }
+            XCTAssert(stop.waitForExistence(timeout: 15), "the share didn't start")
+            sleep(2); shot("panel-\(level)")
+            stop.tap()
+            XCTAssert(start.waitForExistence(timeout: 15), "the share didn't stop")
+        }
+    }
+
     /// Pair settings from a conversation: my share to them and their places.
     func testPairSettingsFromConversation() throws {
         guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
