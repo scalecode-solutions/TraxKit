@@ -65,8 +65,9 @@ struct TraxPersonMap: View {
             }
             ForEach(places) { place in
                 let center = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+                // A real colour, never `.tint` (it recursed: MVTRAX-43).
                 Marker(place.name, monogram: Text(place.emoji ?? "📍"), coordinate: center)
-                    .tint(.tint.opacity(0.75))
+                    .tint((appearance.mapTint ?? .red).opacity(0.75))
                 MapCircle(center: center, radius: CLLocationDistance(place.radiusM))
                     .foregroundStyle(.tint.opacity(0.08))
                     .stroke(.tint.opacity(0.3), lineWidth: 1)

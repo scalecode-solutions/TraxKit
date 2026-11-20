@@ -13,6 +13,8 @@ struct TraxMeView: View {
     let onShare: () -> Void
     let onWeather: () -> Void
     let onHistory: () -> Void
+    /// Place markers' colour (TraxAppearance.mapTint; never `.tint`, MVTRAX-43).
+    var mapTint: Color? = nil
 
     private var contacts: [TraxContact] { sync.contacts }
     private var places: [PlaceSnapshot] { sync.placeSnapshots }
@@ -46,7 +48,7 @@ struct TraxMeView: View {
         .task { await loadActivity() }
         .sheet(item: $preview) { t in
             SelfSharePreview(viewerName: t.name, precision: t.precision, coord: coord, places: places,
-                             meId: person.ownerId, meName: person.name, meAvatar: person.avatar)
+                             meId: person.ownerId, meName: person.name, meAvatar: person.avatar, mapTint: mapTint)
                 .presentationDetents([.medium, .large])
         }
     }
@@ -336,6 +338,8 @@ struct SelfSharePreview: View {
     let meId: UUID
     let meName: String
     let meAvatar: String?
+    /// Place markers' colour (never `.tint`, MVTRAX-43).
+    var mapTint: Color? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var camera: MapCameraPosition = .automatic
@@ -384,9 +388,9 @@ struct SelfSharePreview: View {
                 if precision == "exact" {
                     Annotation("You", coordinate: c) { AvatarPin(id: meId, name: meName, avatar: meAvatar) }
                 } else if let place = presented.place {
-                    Marker(place, monogram: Text("📍"), coordinate: c).tint(.tint)
+                    Marker(place, monogram: Text("📍"), coordinate: c).tint(mapTint ?? .red)
                 } else {
-                    Marker("~ Around here", coordinate: c).tint(.tint)
+                    Marker("~ Around here", coordinate: c).tint(mapTint ?? .red)
                 }
             }
         }

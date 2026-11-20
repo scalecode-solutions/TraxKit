@@ -250,6 +250,61 @@ final class TraxLabUITests: XCTestCase {
     }
 
     /// Pair settings from a conversation: my share to them and their places.
+    /// The person map when I share one of my places with them: the map draws
+    /// that place's marker in the host's colour. A marker tinted with "the
+    /// tint" in terms of itself recursed until the stack ran out (a crash on a
+    /// real iPhone, iOS 27.2.1, MVTRAX-43). Shares a place from Location
+    /// Sharing, opens the map, checks the app is still up with the card shown,
+    /// then puts the toggle back.
+    func testPersonMapWithASharedPlace() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
+        reachable(app.buttons["conversation.pairSettings"], "location settings link").tap()
+        let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH 'pair.place.'")).firstMatch
+        guard toggle.waitForExistence(timeout: 10) else { throw XCTSkip("the account has no custom place to share") }
+        let wasOn = (toggle.value as? String) == "1"
+        // Tap the switch itself (the row's centre can land on its label).
+        if !wasOn { reachable(toggle, "place toggle").coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap() }
+        let on = expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: toggle)
+        wait(for: [on], timeout: 10)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        reachable(app.buttons["conversation.map"], "map link").tap()
+        let card = app.descendants(matching: .any)["person.card"].firstMatch
+        XCTAssert(card.waitForExistence(timeout: 15), "no person card")
+        sleep(3)   // the map draws the shared place's marker
+        XCTAssertEqual(app.state, .runningForeground, "the app died drawing the shared place")
+        shot("person-map-shared-place")
+
+        if !wasOn {   // put it back as it was
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            reachable(app.buttons["conversation.pairSettings"], "location settings link").tap()
+            if toggle.waitForExistence(timeout: 10), (toggle.value as? String) == "1" {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+            }
+        }
+    }
+
+    /// The hub's Places pill draws place markers on the map (tinted
+    /// `.secondary`). It had never run on iOS 27 in a host before a host shipped the hub,
+    /// so this opens it and checks the app is still up (MVTRAX-43, Zoomer).
+    func testHubPlacesPillMap() throws {
+        XCTAssert(app.maps.firstMatch.waitForExistence(timeout: 15), "the hub's map didn't load")
+        app.tap()
+        // The hub can reopen on a person's detail; go back to the pills first.
+        let back = app.buttons["hub.detailBack"]
+        if back.waitForExistence(timeout: 5) { back.tap() }
+        let pill = app.buttons["hub.pill.places"]   // not the share's "Places" precision
+        if !pill.waitForExistence(timeout: 10) { app.swipeUp() }
+        // At the largest text the sheet can open below its pill row in the Lab.
+        guard pill.waitForExistence(timeout: 5) else {
+            throw XCTSkip("the sheet's pill row isn't reachable at this text size in the Lab")
+        }
+        pill.tap()
+        sleep(3)   // the map draws the places' markers
+        XCTAssertEqual(app.state, .runningForeground, "the app died drawing the places")
+        shot("hub-places")
+    }
+
     func testPairSettingsFromConversation() throws {
         guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
         reachable(app.buttons["conversation.pairSettings"], "location settings link").tap()
