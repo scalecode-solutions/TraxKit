@@ -7,7 +7,8 @@
 #   scripts/ui-test.sh <test-account-uuid> [friend-uuid]
 #
 # With a friend who shares with the account, the conversation test runs too.
-# Env: SIMS (simulator names, space-separated; default "TraxLab-iPhone
+# Env: SIMS (simulator names, space-separated, so a name can't contain a
+# space; the Lab sims' names don't; default "TraxLab-iPhone
 # TraxLab-27": iOS 26 AND iOS 27, because layout differs between them and a
 # 26-only gate let 0.7.2's card regress on 27, MVTRAX-39), SIM (one name,
 # overrides SIMS), DD (build folder: give each person their own), ONLY (one
@@ -36,13 +37,15 @@ TOKEN=$(cd "$SERVER" && go run ./cmd/minttoken "$KEY" "$USER_ID")
 for SIM in $SIMS; do
   xcrun simctl list devices available | grep -qE "^ +$SIM \([0-9A-F-]{36}\)" || { echo "no simulator named $SIM"; exit 2; }
 done
-rm -rf "$SHOTS"; mkdir -p "$SHOTS"
+mkdir -p "$SHOTS"
 STATUS=0
 for SIM in $SIMS; do
   SIM_ID=$(xcrun simctl list devices available | sed -nE "s/^ +$SIM \(([0-9A-F-]{36})\).*/\1/p" | head -1)   # by id: xcodebuild sometimes misses a sim by name
   WAS_BOOTED=$(xcrun simctl list devices | grep -q "$SIM_ID) (Booted)" && echo yes || echo no)
   RESULT=$SHOTS/$SIM.xcresult
-  rm -rf "$RESULT"
+  # Delete only what this script writes for this simulator, never $SHOTS
+  # itself: it's caller-supplied, and a typo must not wipe a tree.
+  rm -rf "$RESULT" "$SHOTS/$SIM"
   echo "== $SIM"
   (cd Demo && TEST_RUNNER_TRAX_DEV_TOKEN=$TOKEN TEST_RUNNER_TRAX_DEV_USER=$USER_ID TEST_RUNNER_LAB_FRIEND=$FRIEND \
     xcodebuild test -project TraxLab.xcodeproj -scheme TraxLab \

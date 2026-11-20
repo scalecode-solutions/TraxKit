@@ -5,7 +5,8 @@
 #
 #   scripts/look.sh <test-account-uuid> [friend-uuid]
 #
-# Env: SIMS (simulator names, space-separated; default "TraxLab-iPhone
+# Env: SIMS (simulator names, space-separated, so a name can't contain a
+# space; the Lab sims' names don't; default "TraxLab-iPhone
 # TraxLab-27": iOS 26 and iOS 27 lay out differently, MVTRAX-39), SIM (one
 # name, overrides SIMS), DD, SERVER (the mvTrax checkout), BASE, OUT (default
 # /tmp/traxlab-look: give each person their own). Shots land in
@@ -28,7 +29,7 @@ done
 KEY=$(sed -n 's/^TOKEN_KEY=//p' "$SERVER/.env")
 TOKEN=$(cd "$SERVER" && go run ./cmd/minttoken "$KEY" "$USER_ID")
 OUT=${OUT:-/tmp/traxlab-look}
-rm -rf "$OUT"; mkdir -p "$OUT"
+mkdir -p "$OUT"
 
 SIM_ID= WAS_SIZE= WAS_LOOK= WAS_BOOTED=
 restore() {
@@ -48,6 +49,9 @@ for SIM in $SIMS; do
   WAS_SIZE=$(xcrun simctl ui "$SIM_ID" content_size)
   WAS_LOOK=$(xcrun simctl ui "$SIM_ID" appearance)
   echo "== $SIM"
+  # Delete only what this script writes for this simulator, never $OUT itself
+  # (caller-supplied: a typo must not wipe a tree).
+  rm -rf "$OUT/$SIM" "$OUT/$SIM"-*.xcresult
   for mode in light dark xxxl; do
     case $mode in
       light) xcrun simctl ui "$SIM_ID" appearance light; xcrun simctl ui "$SIM_ID" content_size large ;;
@@ -55,7 +59,6 @@ for SIM in $SIMS; do
       xxxl)  xcrun simctl ui "$SIM_ID" appearance light; xcrun simctl ui "$SIM_ID" content_size accessibility-extra-extra-extra-large ;;
     esac
     RESULT=$OUT/$SIM-$mode.xcresult
-    rm -rf "$RESULT"
     (cd Demo && TEST_RUNNER_LOOK=1 TEST_RUNNER_LOOK_MODE=$mode TEST_RUNNER_TRAX_DEV_TOKEN=$TOKEN \
       TEST_RUNNER_TRAX_DEV_USER=$USER_ID TEST_RUNNER_LAB_FRIEND=$FRIEND \
       xcodebuild test -project TraxLab.xcodeproj -scheme TraxLab -destination "platform=iOS Simulator,id=$SIM_ID" \
@@ -65,4 +68,4 @@ for SIM in $SIMS; do
   done
   restore
 done
-find "$OUT" -name "*.png" | sort
+for SIM in $SIMS; do find "$OUT/$SIM" -name "*.png" 2>/dev/null; done | sort
