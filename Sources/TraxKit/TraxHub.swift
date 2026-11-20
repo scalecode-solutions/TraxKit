@@ -151,6 +151,10 @@ public struct TraxHub: View {
                     Button { showShareSheet = true } label: {
                         Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 17, weight: .medium))
                     }
+                    // The text colour, not the host's tint: over the map's glass
+                    // a tinted glyph blends in (seen on iOS 27). As a
+                    // host's own header draws its buttons.
+                    .tint(Color.primary)
                     .accessibilityLabel("Share my location")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -163,6 +167,7 @@ public struct TraxHub: View {
                     } label: {
                         Image(systemName: "gearshape").font(.system(size: 17, weight: .medium))
                     }
+                    .tint(Color.primary)
                     .accessibilityLabel("Location settings")
                 }
             }
@@ -390,6 +395,7 @@ public struct TraxHub: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(p.title)
+                .accessibilityIdentifier("hub.pill.\(p.rawValue)")
                 .accessibilityAddTraits(pill == p ? .isSelected : [])
             }
         }
@@ -404,6 +410,7 @@ public struct TraxHub: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
+            .accessibilityIdentifier("hub.detailBack")
             Text(detailSubject?.displayName ?? "Details").font(.system(.title3, weight: .bold)).lineLimit(2)
             Spacer()
         }

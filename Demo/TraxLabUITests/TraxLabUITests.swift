@@ -284,6 +284,27 @@ final class TraxLabUITests: XCTestCase {
         }
     }
 
+    /// The hub's Places pill draws place markers on the map (tinted
+    /// `.secondary`). It had never run on iOS 27 in a host before a host shipped the hub,
+    /// so this opens it and checks the app is still up (MVTRAX-43, Zoomer).
+    func testHubPlacesPillMap() throws {
+        XCTAssert(app.maps.firstMatch.waitForExistence(timeout: 15), "the hub's map didn't load")
+        app.tap()
+        // The hub can reopen on a person's detail; go back to the pills first.
+        let back = app.buttons["hub.detailBack"]
+        if back.waitForExistence(timeout: 5) { back.tap() }
+        let pill = app.buttons["hub.pill.places"]   // not the share's "Places" precision
+        if !pill.waitForExistence(timeout: 10) { app.swipeUp() }
+        // At the largest text the sheet can open below its pill row in the Lab.
+        guard pill.waitForExistence(timeout: 5) else {
+            throw XCTSkip("the sheet's pill row isn't reachable at this text size in the Lab")
+        }
+        pill.tap()
+        sleep(3)   // the map draws the places' markers
+        XCTAssertEqual(app.state, .runningForeground, "the app died drawing the places")
+        shot("hub-places")
+    }
+
     func testPairSettingsFromConversation() throws {
         guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
         reachable(app.buttons["conversation.pairSettings"], "location settings link").tap()

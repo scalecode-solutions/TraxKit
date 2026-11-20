@@ -14,6 +14,8 @@ import Testing
         let files = try FileManager.default.contentsOfDirectory(at: sources, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "swift" }
         #expect(!files.isEmpty, "no kit sources found at \(sources.path)")
+        // One line at a time: a `.tint(` with its argument on the next line
+        // would slip past. Keep tint calls on one line.
         let pattern = try Regex(#"\.tint\(\s*(AnyShapeStyle\(\s*)?\.tint\b"#)
         var hits: [String] = []
         for file in files {
