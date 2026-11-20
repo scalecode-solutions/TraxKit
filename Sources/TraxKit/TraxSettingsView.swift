@@ -141,12 +141,17 @@ public struct TraxSettingsView<Extra: View>: View {
         }
     }
 
-    /// Access that needs the person's attention: always orange (a warning,
-    /// not the host's accent), with a symbol so it isn't colour alone.
+    /// Access that needs the person's attention: an orange warning triangle
+    /// (a warning, not the host's accent) beside the value. The words stay
+    /// .primary: orange text on a light surface misses AA (ContrastTests).
     private func attention(_ value: String) -> some View {
         LabeledContent {
-            Label(value, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+                Text(value).foregroundStyle(.primary)
+            }
         } label: {
             Text("Access")
         }

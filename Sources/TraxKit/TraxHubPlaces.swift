@@ -115,9 +115,6 @@ final class AddressSearchModel: NSObject, MKLocalSearchCompleterDelegate {
     }
 }
 
-/// Create/edit a place with a real map picker: type an address (live autocomplete),
-/// drag the map under the center pin, or tap locate-me. For an existing custom
-/// place, a "Shared with" section co-owns it with friends.
 /// Whether the editor also manages who a place is shared with. Settings are
 /// self-scoped: who sees which place is decided per person (in
 /// TraxPairSettingsView), never from one central list.
@@ -134,6 +131,9 @@ enum PlaceEditorAccess: Equatable {
     }
 }
 
+/// Create/edit a place with a real map picker: type an address (live autocomplete),
+/// drag the map under the center pin, or tap locate-me. For an existing custom
+/// place, a "Shared with" section co-owns it with friends (not in `.selfScoped`).
 struct PlaceEditor: View {
     let engine: TraxEngine
     let mode: PlaceEdit

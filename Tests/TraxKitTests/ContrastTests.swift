@@ -53,6 +53,16 @@ struct ContrastTests {
         #expect(dark >= 4.5, "\(name) dark: \(dark)")
     }
 
+    /// The access row's attention state: orange marks it, but only on the
+    /// triangle. Orange as the value's text would miss AA on a light surface;
+    /// the words stay .primary, which clears it in both schemes.
+    @Test func accessAttentionWordsArentOrange() {
+        let orangeLight: RGB = (255, 149, 0)     // systemOrange, light
+        #expect(Self.contrast(orangeLight, Self.lightSurface) < 4.5)
+        #expect(Self.contrast((0, 0, 0), Self.lightSurface) >= 4.5)
+        #expect(Self.contrast((255, 255, 255), Self.darkSurface) >= 4.5)
+    }
+
     /// Why not white on a solid tint (CalendarKit's choice, which works there
     /// because CalendarKit knows its colours and picks black for bright ones):
     /// with the host's own dark-mode brand it misses AA for text.

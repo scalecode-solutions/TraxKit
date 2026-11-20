@@ -111,6 +111,8 @@ final class TraxLabUITests: XCTestCase {
 
     /// My settings: places, stop all, clear history, all reachable.
     func testSettings() {
+        _ = app.buttons["settings.addPlace"].waitForExistence(timeout: 15)
+        shot("settings-top")   // the access row, before any scroll
         reachable(app.buttons["settings.addPlace"], "add place")
         reachable(app.buttons["settings.clearHistory"], "clear history")
         reachable(app.buttons["settings.stopAll"], "stop all")
