@@ -94,6 +94,8 @@ import Testing
                 .hasPrefix(threeDays.formatted(.dateTime.weekday(.abbreviated))))
         let month = traxCrossingTime(cal.date(byAdding: .day, value: -30, to: now)!, now: now)
         #expect(!month.contains(":"), "an old crossing shows its date: \(month)")
+        let lastYear = cal.date(byAdding: .year, value: -1, to: now)!
+        #expect(traxCrossingTime(lastYear, now: now).contains(String(cal.component(.year, from: lastYear))))
     }
 
     @Test func appearanceFillsInTheName() {

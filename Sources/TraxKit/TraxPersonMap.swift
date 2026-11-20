@@ -255,7 +255,8 @@ struct TraxPersonMap: View {
 }
 
 /// When a crossing happened, as a short label: the time today, "Yesterday"
-/// and the time, the weekday within a week, else the date. A time alone
+/// and the time, the weekday within a week, else the date (with the year
+/// when it isn't this one). A time alone
 /// would read as today for an arrival days old.
 func traxCrossingTime(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
     let time = date.formatted(date: .omitted, time: .shortened)
@@ -266,5 +267,8 @@ func traxCrossingTime(_ date: Date, now: Date = Date(), calendar: Calendar = .cu
     if let week = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)), date >= week {
         return "\(date.formatted(.dateTime.weekday(.abbreviated))) \(time)"
     }
-    return date.formatted(.dateTime.month(.abbreviated).day())
+    if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+        return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+    return date.formatted(.dateTime.month(.abbreviated).day().year())
 }
