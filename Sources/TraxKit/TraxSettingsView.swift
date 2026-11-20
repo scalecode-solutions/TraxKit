@@ -72,7 +72,7 @@ public struct TraxSettingsView<Extra: View>: View {
 
             Section {
                 ForEach(myPlaces) { placeRow($0) }
-                Button { editing = .new } label: { Label("Add a place", systemImage: "plus") }
+                Button { editing = .new } label: { TraxRowLabel(title: "Add a place", systemImage: "plus") }
                     .accessibilityIdentifier("settings.addPlace")
             } header: {
                 Text("My places")
@@ -91,10 +91,14 @@ public struct TraxSettingsView<Extra: View>: View {
             }
 
             Section {
-                Button(appearance.stopAllSharing, role: .destructive) { confirmStopAll = true }
+                Button(role: .destructive) { confirmStopAll = true } label: {
+                    TraxRowLabel(title: appearance.stopAllSharing, systemImage: "location.slash", destructive: true)
+                }
                     .disabled(!engine.isSharing || busy)
                     .accessibilityIdentifier("settings.stopAll")
-                Button(appearance.clearHistory, role: .destructive) { confirmClear = true }
+                Button(role: .destructive) { confirmClear = true } label: {
+                    TraxRowLabel(title: appearance.clearHistory, systemImage: "trash", destructive: true)
+                }
                     .disabled(busy)
                     .accessibilityIdentifier("settings.clearHistory")
                 if let message {
@@ -133,16 +137,20 @@ public struct TraxSettingsView<Extra: View>: View {
             LabeledContent("Access", value: "Always")
         case .whenInUse:
             LabeledContent("Access", value: "While using the app")
-            Button("Allow in the background") { engine.requestLocationAccess() }
+            Button { engine.requestLocationAccess() } label: {
+                TraxRowLabel(title: "Allow in the background", systemImage: "location.fill")
+            }
                 .accessibilityIdentifier("settings.allowAlways")
         case .notDetermined:
             attention("Not allowed yet")
-            Button("Allow location access") { engine.requestLocationAccess() }
+            Button { engine.requestLocationAccess() } label: {
+                TraxRowLabel(title: "Allow location access", systemImage: "location.fill")
+            }
                 .accessibilityIdentifier("settings.allowLocation")
         case .denied:
             attention("Off")
             if let url = URL(string: UIApplication.openSettingsURLString) {
-                Link("Open Settings", destination: url)
+                Link(destination: url) { TraxRowLabel(title: "Open Settings", systemImage: "gear") }
             }
         }
     }

@@ -101,3 +101,28 @@ extension View {
         glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
     }
 }
+
+/// A list row's action label, as a host's own settings rows draw one: the
+/// icon in the tint (or red, destructive), the words in the text colour
+/// (tinted words miss AA on a dark grouped cell with a mid-blue tint).
+struct TraxRowLabel: View {
+    let title: String
+    let systemImage: String
+    var destructive = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Label {
+            Text(title).foregroundStyle(style(text: true))
+        } icon: {
+            Image(systemName: systemImage).foregroundStyle(style(text: false))
+        }
+    }
+
+    /// Explicit colours don't dim on their own: a disabled row goes grey.
+    private func style(text: Bool) -> AnyShapeStyle {
+        if !isEnabled { return AnyShapeStyle(Color.secondary) }
+        if destructive { return AnyShapeStyle(TraxPalette.destructive) }
+        return text ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.tint)
+    }
+}
