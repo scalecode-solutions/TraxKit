@@ -161,6 +161,9 @@ private struct LabHubScreen: View {
 
     var body: some View {
         TraxRootView(engine: session.engine, embedded: true, onSignOut: signOut)
+            // The tint on the screen that owns the toolbar, as a host's
+            // destination sets it: the bar uses that tint for its items.
+            .tint(.tardisBlue)
             .onAppear { hold.arm(session) }
     }
 }
