@@ -111,6 +111,19 @@ final class TraxLabUITests: XCTestCase {
                        "the card stops \(screen.maxY - card.frame.maxY) pt above the bottom edge")
         let start = app.buttons["share.start"], stop = app.buttons["share.stop"]
         XCTAssert(start.waitForExistence(timeout: 5) || stop.exists, "no share controls")
+        // The content sits where it should on every iOS (iOS 27 slid it under
+        // the tab bar and left empty glass at the card's top, MVTRAX-39):
+        // the share control clears the tab bar, or the home indicator strip,
+        // and the first line sits at the card's top padding, not below a gap.
+        let control = start.exists ? start : stop
+        let bar = app.tabBars.firstMatch
+        let floor = bar.exists && bar.isHittable ? bar.frame.minY : screen.maxY - 21
+        XCTAssertLessThanOrEqual(control.frame.maxY, floor + 1,
+                                 "the share control sits under the tab bar or the home indicator")
+        let status = app.staticTexts["person.status"]
+        XCTAssert(status.waitForExistence(timeout: 5), "no status line")
+        XCTAssertLessThanOrEqual(status.frame.minY - card.frame.minY, 30,
+                                 "empty glass above the card's first line: \(status.frame.minY - card.frame.minY) pt")
         shot("person-card-edge")
     }
 
