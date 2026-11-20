@@ -46,7 +46,8 @@ SIMCTL_CHILD_TRAX_DEV_TOKEN=$TOKEN SIMCTL_CHILD_TRAX_DEV_USER=$USER_ID \
 - Lab UI tests: `scripts/ui-test.sh <account-uuid> [friend-uuid]` mints a
   token and runs `TraxLabUITests` (signed-in hub loads; with a friend who
   shares, the conversation shows them) on each simulator in `SIMS`, by default
-  `TraxLab-iPhone` (iOS 26) and `TraxLab-27` (iPhone 17 Pro Max, iOS 27):
+  `TraxLab-Small` (iOS 26, a small phone at Display Zoom) and `TraxLab-27`
+  (iPhone 17 Pro Max, iOS 27):
   layout differs between the two, and a 26-only gate once missed a 27-only
   regression. Screenshots land in `/tmp/traxlab-shots/<sim>`. `scripts/look.sh`
   takes the same `SIMS`. Create a missing one with

@@ -6,7 +6,7 @@
 #   scripts/look.sh <test-account-uuid> [friend-uuid]
 #
 # Env: SIMS (simulator names, space-separated, so a name can't contain a
-# space; the Lab sims' names don't; default "TraxLab-iPhone
+# space; the Lab sims' names don't; default "TraxLab-Small
 # TraxLab-27": iOS 26 and iOS 27 lay out differently, MVTRAX-39), SIM (one
 # name, overrides SIMS), DD, SERVER (the mvTrax checkout), BASE, OUT (default
 # /tmp/traxlab-look: give each person their own). Shots land in
@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 USER_ID=${1:?usage: scripts/look.sh <test-account-uuid> [friend-uuid]}
 FRIEND=${2:-}
 SERVER=${SERVER:-../mvTrax}
-SIMS=${SIM:-${SIMS:-TraxLab-iPhone TraxLab-27}}
+SIMS=${SIM:-${SIMS:-TraxLab-Small TraxLab-27}}
 DD=${DD:-/tmp/traxlab-dd}
 BASE=${BASE:-http://localhost:6091}
 curl -fsS "$BASE/health" >/dev/null || { echo "mvTrax isn't up at $BASE"; exit 2; }
