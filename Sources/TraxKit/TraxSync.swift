@@ -563,13 +563,17 @@ public final class TraxSync {
     /// rides the SAME @Observable path as the live feed, instead of a second source
     /// the host has to merge separately (which won't reliably refresh the UI).
     public func backfillTransitions(ownerID: UUID, limit: Int? = nil) async {
+        // A friend's history reads need an exact share (the server's History
+        // disclosure): for any other tier the request is refused, so don't make
+        // it (it only set lastError). Their arrivals still come in on the feed.
+        if ownerID != currentUserID, incoming[ownerID]?.precision != "exact" { return }
         let (trs, gen) = await fetchTransitions(ownerID: ownerID, since: nil, limit: limit)
         guard !trs.isEmpty, current(gen) else { return }
-        if ownerID == currentUserID {
-            for t in trs { store.upsertTransition(t) }   // server copies replace my local ones
-            store.save()
-            publish()
-        }
+        // Kept in the store for everyone (server copies replace my local twins),
+        // so a thread's rows survive a relaunch.
+        for t in trs { store.upsertTransition(t) }
+        store.save()
+        publish()
         mergeTransitions(trs)
     }
 

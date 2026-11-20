@@ -82,10 +82,14 @@ public final class TraxLocationStore {
         TraxRelationship(partnerID: partner, outgoing: outgoingShare(to: partner), incoming: summary(for: partner))
     }
 
-    /// `partner`'s recent enter/leave events visible to me (from the live feed) —
-    /// the events the chat bridge projects into the thread for that partner.
+    /// `partner`'s recent enter/leave events visible to me, newest first, from
+    /// the DURABLE store (the feed and backfill write them there), so a thread
+    /// keeps them across relaunches and one busy partner can't push out another's.
+    /// The live buffer is touched only so the read re-runs when one lands.
     public func recentTransitions(with partner: UUID, limit: Int = 20) -> [TransitionDTO] {
-        Array(sync.recentTransitions.filter { $0.ownerId == partner }.prefix(limit))
+        _ = sync.revision
+        _ = sync.recentTransitions
+        return store.transitions(ownerID: partner, limit: limit).map(\.dto)
     }
 
     /// My OWN recent enter/leave events — the "You arrived at X" side of a thread.
@@ -97,11 +101,7 @@ public final class TraxLocationStore {
     public func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] {
         _ = sync.revision            // observe the store → re-read it when it changes
         _ = sync.recentTransitions   // …and the live buffer a fresh crossing lands in
-        return store.transitions(ownerID: sync.currentUserID, limit: limit).map {
-            TransitionDTO(id: $0.id, ownerId: $0.ownerId, placeId: $0.placeId,
-                          placeName: $0.placeName, placeEmoji: $0.placeEmoji,
-                          event: $0.event, createdAt: $0.createdAt)
-        }
+        return store.transitions(ownerID: sync.currentUserID, limit: limit).map(\.dto)
     }
 
     /// My OWN enter/leave events read back from mvTrax (durable) — backfills my side
@@ -145,5 +145,13 @@ public final class TraxLocationStore {
     public func stopSharing(_ placeID: UUID, with partner: UUID) async {
         try? await sync.unsharePlace(id: placeID, viewer: partner)
         await sync.loadPlaces()
+    }
+}
+
+extension TransitionEntity {
+    /// The stored crossing as a value.
+    var dto: TransitionDTO {
+        TransitionDTO(id: id, ownerId: ownerId, placeId: placeId, placeName: placeName,
+                      placeEmoji: placeEmoji, event: event, createdAt: createdAt)
     }
 }
