@@ -75,7 +75,7 @@ public struct TraxView: View {
     public var body: some View {
         switch focus {
         case .everyone:
-            TraxHub(engine: engine, embedded: true)
+            TraxHub(engine: engine, embedded: true, appearance: appearance)
                 .background { RegionSyncer(engine: engine) }
         case .person(let id):
             TraxPersonMap(engine: engine, personID: id, appearance: appearance)

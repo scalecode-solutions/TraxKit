@@ -27,7 +27,7 @@ struct TraxHubPlacesContent: View {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                         .frame(width: 44, height: 44).background(.tint, in: .circle)
-                    Text("Add a Place").font(.system(.body, weight: .semibold)).foregroundStyle(.tint)
+                    Text("Add a Place").font(.system(.body, weight: .semibold)).foregroundStyle(Color.primary)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10).contentShape(Rectangle())
