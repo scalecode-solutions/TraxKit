@@ -108,8 +108,13 @@ private struct LabPersonMapScreen: View {
     let friend: UUID
     @State private var hold = LabMapHold()
 
+    /// LAB_HIDE_TAB_BAR=1: push the map with the tab bar hidden, as a chat
+    /// host may, so the card has nothing under it at the bottom edge.
+    private var hidesTabBar: Bool { ProcessInfo.processInfo.environment["LAB_HIDE_TAB_BAR"] == "1" }
+
     var body: some View {
         TraxView(engine: session.engine, focus: .constant(.person(friend)))
+            .toolbar(hidesTabBar ? .hidden : .automatic, for: .tabBar)
             .onAppear { hold.arm(session) }
     }
 }
