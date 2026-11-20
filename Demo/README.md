@@ -45,7 +45,12 @@ SIMCTL_CHILD_TRAX_DEV_TOKEN=$TOKEN SIMCTL_CHILD_TRAX_DEV_USER=$USER_ID \
   from the repository root (`swift test` can't build: the kit is iOS-only).
 - Lab UI tests: `scripts/ui-test.sh <account-uuid> [friend-uuid]` mints a
   token and runs `TraxLabUITests` (signed-in hub loads; with a friend who
-  shares, the conversation shows them). Screenshots land in `/tmp/traxlab-shots`.
+  shares, the conversation shows them) on each simulator in `SIMS`, by default
+  `TraxLab-iPhone` (iOS 26) and `TraxLab-27` (iPhone 17 Pro Max, iOS 27):
+  layout differs between the two, and a 26-only gate once missed a 27-only
+  regression. Screenshots land in `/tmp/traxlab-shots/<sim>`. `scripts/look.sh`
+  takes the same `SIMS`. Create a missing one with
+  `xcrun simctl create TraxLab-27 com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-27-2`.
 - Live updates across two devices: `scripts/two-sim.sh <viewer-uuid> <sharer-uuid>`
   signs the sharer in on one simulator and drives it along a route with
   `simctl location`, parks the viewer on the conversation on another, and
