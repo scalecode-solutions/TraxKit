@@ -225,11 +225,12 @@ struct TraxPersonMap: View {
                         }
                     }
                     .buttonStyle(.borderless)
+                    .foregroundStyle(TraxPalette.destructive)
                     .frame(minHeight: 44)
                 }
             }
             if let placeError {
-                Text(placeError).font(.footnote).foregroundStyle(.red)
+                Text(placeError).font(.footnote).foregroundStyle(TraxPalette.destructive)
             }
         }
     }

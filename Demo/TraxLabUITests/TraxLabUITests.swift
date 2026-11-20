@@ -13,7 +13,7 @@ final class TraxLabUITests: XCTestCase {
     var startTab: String? {
         switch name {
         case let n where n.contains(" testSettings"): "me"
-        case let n where n.contains("Conversation") || n.contains("PersonMap") || n.contains("Pair"): "chats"
+        case let n where n.contains("Conversation") || n.contains("PersonMap") || n.contains("PersonCard") || n.contains("Pair"): "chats"
         default: nil
         }
     }
@@ -162,6 +162,23 @@ final class TraxLabUITests: XCTestCase {
         XCTAssertGreaterThan(mapSpread, 12, "the map didn't render (pixel spread \(mapSpread)): can't judge the card's edge")
         let spread = bottomBandSpread(shot)
         XCTAssertLessThan(spread, 12, "the bottom edge shows the map under the card (pixel spread \(spread))")
+    }
+
+    /// The person card's controls while I share (Change, Stop) and while I
+    /// don't (the share button), for eyes in Light and Dark: their labels are
+    /// text colours, never the host's tint. Starts a share against the LOCAL
+    /// server if there isn't one, and stops it again at the end.
+    func testPersonCardControlsLook() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
+        reachable(app.buttons["conversation.map"], "map link").tap()
+        let start = app.buttons["share.start"], stop = app.buttons["share.stop"]
+        XCTAssert(start.waitForExistence(timeout: 15) || stop.exists, "no share controls")
+        if !stop.exists { shot("card-not-sharing"); start.tap() }
+        XCTAssert(stop.waitForExistence(timeout: 15), "the share didn't start")
+        XCTAssert(app.buttons["share.change"].exists, "no Change")
+        shot("card-sharing")
+        stop.tap()
+        XCTAssert(start.waitForExistence(timeout: 15), "the share didn't stop")
     }
 
     /// Pair settings from a conversation: my share to them and their places.

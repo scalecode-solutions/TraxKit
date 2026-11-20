@@ -55,7 +55,41 @@ public struct TraxBackdrop: View {
     }
 }
 
+/// Colours the kit sets itself rather than taking from the host's tint, so
+/// text over glass holds 4.5:1 whatever the host picks (the tint is for fills
+/// and icons, never for text: ContrastTests).
+enum TraxPalette {
+    typealias RGB = (r: Double, g: Double, b: Double)
+    /// Destructive text and labels. Light #D70015 (5.4:1 on white; system red
+    /// #FF3B30 is 3.6 and misses AA), dark #FF453A (5.0:1 on #1C1C1E).
+    static let destructiveLight: RGB = (215, 0, 21)
+    static let destructiveDark: RGB = (255, 69, 58)
+    static let destructive = Color(light: destructiveLight, dark: destructiveDark)
+}
+
+extension Color {
+    /// A colour that follows the light/dark scheme.
+    init(light: TraxPalette.RGB, dark: TraxPalette.RGB) {
+        self.init(uiColor: UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: c.r / 255, green: c.g / 255, blue: c.b / 255, alpha: 1)
+        })
+    }
+}
+
 extension View {
+    /// A secondary action on glass: a glass capsule with the label in the
+    /// text colour, never the host's tint (tinted text misses AA on glass).
+    func traxSecondaryAction() -> some View {
+        buttonStyle(.glass).foregroundStyle(Color.primary)
+    }
+
+    /// A destructive action on glass: explicit red, which a host's tint
+    /// can't override (the role alone shows the tint on a styled button).
+    func traxDestructiveAction() -> some View {
+        buttonStyle(.glass).foregroundStyle(TraxPalette.destructive)
+    }
+
     /// The kit's backdrop behind a list or form (its own background hidden).
     func traxBackdrop() -> some View {
         scrollContentBackground(.hidden)

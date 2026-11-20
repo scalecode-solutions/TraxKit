@@ -63,6 +63,28 @@ struct ContrastTests {
         #expect(Self.contrast((255, 255, 255), Self.darkSurface) >= 4.5)
     }
 
+    /// Destructive labels are the kit's own red, set explicitly (a host tint
+    /// overrides the role on a styled button), dark enough in Light to hold
+    /// AA for text on a light surface, where system red doesn't.
+    @Test func destructiveRedHoldsAAInBothSchemes() {
+        let light: RGB = (TraxPalette.destructiveLight.r, TraxPalette.destructiveLight.g, TraxPalette.destructiveLight.b)
+        let dark: RGB = (TraxPalette.destructiveDark.r, TraxPalette.destructiveDark.g, TraxPalette.destructiveDark.b)
+        #expect(Self.contrast(light, Self.lightSurface) >= 4.5)
+        #expect(Self.contrast(dark, Self.darkSurface) >= 4.5)
+        #expect(Self.contrast((255, 59, 48), Self.lightSurface) < 4.5, "why not system red in Light")
+    }
+
+    /// Why the kit never tints text, and why the share button's label colour
+    /// is the host's to pick (TraxAppearance.onTint): with the host's own
+    /// dark-mode brand, the tint as text and white on the tint both miss AA,
+    /// and black on it passes, so only the host can choose, per scheme.
+    @Test func tintAsTextAndWhiteOnTintMissAAOnTheDarkBrand() {
+        let brandDark = Self.tints[0].dark
+        #expect(Self.contrast(brandDark, Self.darkSurface) < 4.5)
+        #expect(Self.contrast((255, 255, 255), brandDark) < 4.5)
+        #expect(Self.contrast((0, 0, 0), brandDark) >= 4.5)
+    }
+
     /// Why not white on a solid tint (CalendarKit's choice, which works there
     /// because CalendarKit knows its colours and picks black for bright ones):
     /// with the host's own dark-mode brand it misses AA for text.
