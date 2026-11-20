@@ -125,6 +125,7 @@ struct PlaceEditor: View {
     private var currentUserID: UUID { engine.sync.currentUserID }
     @Environment(\.dismiss) private var dismiss
     private var contacts: [TraxContact] { engine.sync.contacts }
+    @Environment(\.traxDisplayNames) private var names
 
     @State private var name = ""
     @State private var type = "custom"
@@ -155,10 +156,7 @@ struct PlaceEditor: View {
     private var isOwner: Bool { ownerID == currentUserID }
     private var canShare: Bool { isEdit && type == "custom" && placeID != nil }
 
-    private func name(for id: UUID) -> String {
-        let n = contacts.first { $0.id == id }?.name
-        return (n?.isEmpty == false ? n! : "Member \(id.uuidString.prefix(8))")
-    }
+    private func name(for id: UUID) -> String { names.name(for: id, people: engine.people) }
 
     var body: some View {
         NavigationStack {

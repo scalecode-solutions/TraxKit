@@ -47,6 +47,7 @@ struct TraxShareSheet: View {
     /// Friends I can share with: the directory includes me, and I can't share with myself.
     private var contacts: [TraxContact] { engine.sync.contacts.filter { $0.id != engine.currentUserID } }
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.traxDisplayNames) private var names
 
     @State private var duration: ShareDuration = .fifteenMinutes
     @State private var precision: SharePrecision = .exact
@@ -54,9 +55,7 @@ struct TraxShareSheet: View {
     @State private var error: String?
 
     private var sharingViewerIDs: Set<UUID> { Set(sync.outgoing.map(\.viewerId)) }
-    private func contactName(_ id: UUID) -> String {
-        contacts.first { $0.id == id }?.name ?? "Member \(id.uuidString.prefix(8))"
-    }
+    private func contactName(_ id: UUID) -> String { names.name(for: id, people: engine.people) }
 
     var body: some View {
         NavigationStack {
@@ -99,7 +98,7 @@ struct TraxShareSheet: View {
                     ForEach(contacts) { c in
                         Button { start(with: c.id) } label: {
                             HStack {
-                                Text(c.name.isEmpty ? "Member \(c.id.uuidString.prefix(8))" : c.name)
+                                Text(contactName(c.id))
                                 Spacer()
                                 if busy == c.id { ProgressView() }
                                 else if sharingViewerIDs.contains(c.id) {

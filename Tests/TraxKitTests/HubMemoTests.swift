@@ -8,9 +8,9 @@ import Testing
 /// every render (a sheet drag renders every frame).
 @MainActor
 @Suite struct HubMemoTests {
-    func key(lat: Double? = 30, clock: Int = 1) -> HubPeopleMemo.Key {
+    func key(lat: Double? = 30, clock: Int = 1, names: [String] = ["You", "A"]) -> HubPeopleMemo.Key {
         HubPeopleMemo.Key(incoming: [], contacts: [TraxContact(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, name: "A", avatar: nil)],
-                          places: [], fixLat: lat, fixLng: -90, battery: 80, charging: false, clock: clock)
+                          places: [], names: names, fixLat: lat, fixLng: -90, battery: 80, charging: false, clock: clock)
     }
 
     @Test func sameInputsBuildOnce() {
@@ -25,6 +25,16 @@ import Testing
         _ = memo.value(for: key(lat: 30.001)) { (nil, []) }   // I moved
         _ = memo.value(for: key(lat: 30.001, clock: 2)) { (nil, []) }   // statuses aged
         #expect(memo.builds == 3)
+    }
+
+    /// A host renaming someone (a new nickname) changes nothing in the engine,
+    /// so the names themselves are part of the key.
+    @Test func aHostNameChangeRebuilds() {
+        let memo = HubPeopleMemo()
+        _ = memo.value(for: key(names: ["You", "A"])) { (nil, []) }
+        _ = memo.value(for: key(names: ["You", "A"])) { (nil, []) }
+        _ = memo.value(for: key(names: ["You", "Sunny"])) { (nil, []) }
+        #expect(memo.builds == 2)
     }
 }
 

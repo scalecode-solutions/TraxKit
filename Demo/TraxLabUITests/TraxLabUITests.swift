@@ -6,6 +6,9 @@ import XCTest
 final class TraxLabUITests: XCTestCase {
     var app: XCUIApplication!
     var friend: String?
+    /// The host's own name for the friend (LAB_NICKNAME): the kit must show it
+    /// instead of the directory's.
+    let nickname = "Lab Nickname"
     /// Where the Lab opens for this test (LAB_START); nil = the map.
     var startTab: String? {
         switch name {
@@ -24,7 +27,7 @@ final class TraxLabUITests: XCTestCase {
         friend = env["LAB_FRIEND"].flatMap { $0.isEmpty ? nil : $0 }
         app = XCUIApplication()
         var launch = ["TRAX_DEV_TOKEN": token, "TRAX_DEV_USER": user]
-        if let friend { launch["LAB_FRIEND"] = friend }
+        if let friend { launch["LAB_FRIEND"] = friend; launch["LAB_NICKNAME"] = nickname }
         if let start = startTab { launch["LAB_START"] = start }
         app.launchEnvironment = launch
         // Location prompts would cover the hub; the test isn't about them.
@@ -89,6 +92,8 @@ final class TraxLabUITests: XCTestCase {
         if app.buttons["person.recenter"].exists {
             XCTAssert(app.buttons["person.recenter"].isHittable, "recenter can't be tapped")
         }
+        XCTAssert(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", nickname)).firstMatch
+                    .waitForExistence(timeout: 5), "the person map doesn't use the host's name")
         shot("person-map")
     }
 
@@ -99,6 +104,8 @@ final class TraxLabUITests: XCTestCase {
         let start = app.buttons["share.start"], change = app.buttons["share.change"]
         XCTAssert(start.waitForExistence(timeout: 10) || change.exists, "no share controls")
         reachable(start.exists ? start : change, "share control")
+        XCTAssert(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", nickname)).firstMatch
+                    .waitForExistence(timeout: 5), "pair settings don't use the host's name")
         shot("pair-settings")
     }
 

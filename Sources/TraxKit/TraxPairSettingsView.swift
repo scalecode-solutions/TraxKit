@@ -15,6 +15,7 @@ public struct TraxPairSettingsView: View {
     /// toggles don't let the first one's answer show a stale state.
     @State private var latest: [UUID: UUID] = [:]
     @State private var error: String?
+    @Environment(\.traxDisplayNames) private var names
 
     public init(engine: TraxEngine, otherID: UUID, appearance: TraxAppearance = .standard) {
         self.engine = engine
@@ -22,10 +23,7 @@ public struct TraxPairSettingsView: View {
         self.appearance = appearance
     }
 
-    private var name: String {
-        let n = engine.people[otherID]?.name
-        return (n?.isEmpty == false ? n! : "Member \(otherID.uuidString.prefix(8))")
-    }
+    private var name: String { names.name(for: otherID, people: engine.people) }
 
     /// Custom places only: home and work always stay private.
     private var myPlaces: [TraxPlace] { engine.places.filter { $0.isMine && $0.kind == .custom } }
