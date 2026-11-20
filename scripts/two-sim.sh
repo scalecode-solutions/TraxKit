@@ -10,7 +10,8 @@
 #
 # The sharer must already share exact location with the viewer (and they must
 # be friends) on the local stack. Env: SIM_A, SIM_B (simulator names, default
-# TraxLab-A / TraxLab-B), DD (build folder), SERVER (the mvTrax checkout),
+# TraxLab-A / TraxLab-B; neither exists by default now: create two or pass
+# SIM_A / SIM_B), DD (build folder), SERVER (the mvTrax checkout),
 # BASE (the API), OUT (shots folder, default /tmp/traxlab-two-sim), SHOTS
 # (default 8), EVERY (seconds between shots, default 10), SPEED (m/s, default
 # 25), ROUTE (space-separated lat,lng waypoints; default a loop of a few km).
@@ -67,7 +68,9 @@ SIMCTL_CHILD_TRAX_DEV_TOKEN=$TOKEN_A SIMCTL_CHILD_TRAX_DEV_USER=$VIEWER \
 SIMCTL_CHILD_LAB_FRIEND=$SHARER SIMCTL_CHILD_LAB_START=chats \
   xcrun simctl launch "$A" "$APP_ID" >/dev/null
 
-rm -rf "$OUT"; mkdir -p "$OUT"
+# Delete only what this script writes, never $OUT itself: it's caller-supplied,
+# and a typo must not wipe a tree.
+mkdir -p "$OUT"; rm -f "$OUT"/viewer-*.png "$OUT/sharer-last.png"
 for i in $(seq -w 1 "$SHOTS"); do
   sleep "$EVERY"
   xcrun simctl io "$A" screenshot --type=png "$OUT/viewer-$i.png" >/dev/null 2>&1
