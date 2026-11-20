@@ -28,7 +28,7 @@ import Testing
                                     transitions: busy + [Fixtures.transition(owner: friend, place: spot,
                                                                              at: Fixtures.nowMs(-1800))],
                                     syncTs: Fixtures.nowMs(), hasMore: false, stoppedIds: nil))
-        store.save()
+        store.save(); engine.sync.publish()
         #expect(engine.recentTransitions(with: friend).count == 1)
         #expect(engine.recentTransitions(with: other, limit: 100).count == 60)
 
@@ -212,5 +212,33 @@ import Testing
         await t.queueFeed(FeedDTO(shares: [], syncTs: Fixtures.nowMs(), hasMore: false, stoppedIds: []))
         await engine.sync.refresh()
         #expect(store.transitions(ownerID: me).count == 1)
+    }
+
+    /// A thread reads published values (no fetch in a view body): a row
+    /// written to the store shows once the sync layer publishes.
+    @Test func threadsReadPublishedRows() async {
+        let (_, engine, store, me) = await rig()
+        store.applyFeedPage(FeedDTO(shares: [Fixtures.share(owner: friend, viewer: me)], syncTs: Fixtures.nowMs(),
+                                    hasMore: false, stoppedIds: nil))
+        engine.sync.publish()
+        store.upsertTransition(Fixtures.transition(owner: friend, place: spot, at: Fixtures.nowMs(-60)))
+        store.save()
+        #expect(engine.recentTransitions(with: friend).isEmpty, "not read from the store directly")
+        engine.sync.publish()
+        #expect(engine.recentTransitions(with: friend).count == 1)
+    }
+
+    /// An expiry is the clock, not a store write: the next publish hides
+    /// their rows.
+    @Test func anExpiryHidesTheirRowsOnTheNextPublish() async throws {
+        let (_, engine, store, me) = await rig()
+        store.applyFeedPage(FeedDTO(shares: [Fixtures.share(owner: friend, viewer: me, expiresAt: Fixtures.nowMs(2))],
+                                    transitions: [Fixtures.transition(owner: friend, place: spot, at: Fixtures.nowMs(-60))],
+                                    syncTs: Fixtures.nowMs(), hasMore: false, stoppedIds: nil))
+        engine.sync.publish()
+        #expect(engine.recentTransitions(with: friend).count == 1)
+        try await Task.sleep(for: .milliseconds(2200))
+        engine.sync.publish()
+        #expect(engine.recentTransitions(with: friend).isEmpty)
     }
 }

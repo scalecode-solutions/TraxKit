@@ -31,6 +31,9 @@ public final class TraxSync {
     private(set) var incomingList: [IncomingShareSnapshot] = []
     /// Places visible to me, published as values.
     private(set) var placeSnapshots: [PlaceSnapshot] = []
+    /// Each owner's arrivals I may see (me included), newest first, capped:
+    /// what a thread reads, so no view body fetches.
+    private(set) var transitionsByOwner: [UUID: [TransitionDTO]] = [:]
     /// The people directory (friends and me), by name, as values.
     private(set) var contacts: [TraxContact] = []
     /// The same directory by id, built once per change (every row looks names up).
@@ -124,9 +127,15 @@ public final class TraxSync {
             revision += 1
         }
         let inc = store.incomingSnapshots()
-        if inc != incoming {
+        let sharesMoved = inc != incoming
+        if sharesMoved {
             incoming = inc
             incomingList = inc.values.sorted { ($0.updatedAt, $0.shareID.uuidString) > ($1.updatedAt, $1.shareID.uuidString) }
+        }
+        // Who may see whose arrivals follows the shares (an expiry included).
+        if storeMoved || sharesMoved {
+            let rows = store.transitionSnapshots(me: currentUserID)
+            if rows != transitionsByOwner { transitionsByOwner = rows }
         }
         guard storeMoved else { return }
         let places = store.placeSnapshots()
@@ -220,8 +229,9 @@ public final class TraxSync {
             }
             var pruned = store.deleteExpiredShares()
             // Only once the share set is whole (a reload's later pages named
-            // everyone): a partner whose share went loses their stored arrivals.
-            if complete, store.prunePartnerTransitions(me: currentUserID) { pruned = true }
+            // everyone), and only when something moved: a partner whose share
+            // went loses their stored arrivals.
+            if complete, applied || pruned, store.prunePartnerTransitions(me: currentUserID) { pruned = true }
             if pruned { store.save(); applied = true }
             pollSucceeded("feed")
         } catch is CancellationError {

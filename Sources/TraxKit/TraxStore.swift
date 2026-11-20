@@ -247,10 +247,14 @@ public final class TraxStore {
     /// How many of one partner's arrivals are kept (newest first).
     static let partnerTransitionCap = 100
 
-    /// Whether I may still see `t`, a partner's arrival, by the server's rule:
-    /// while they share with me at a tier that shows arrivals (exact or place),
-    /// from the start of that share; or at a place I hold (mine, or one shared
-    /// with me). A stop, an expiry or an unshared place takes it away.
+    /// Whether I may still see `t`, a partner's arrival, by the server's rule
+    /// (TransitionsForViewer): while they share with me at a tier that shows
+    /// arrivals (exact or place), from the start of that share; or at a place I
+    /// hold (mine, or one shared with me). A stop, an expiry or an unshared
+    /// place takes it away. The place lane deliberately has no start date: the
+    /// server also requires the arrival to postdate the place being shared with
+    /// me, which the client doesn't know; rows only ever come from the server,
+    /// which applied it.
     private struct PartnerAccess {
         let since: Int64?
         let places: Set<UUID>
@@ -260,19 +264,32 @@ public final class TraxStore {
         }
     }
 
-    private func partnerAccess(_ ownerID: UUID, places: Set<UUID>, nowMs: Int64) -> PartnerAccess {
-        let fetch = FetchDescriptor<ShareEntity>(predicate: #Predicate { $0.ownerId == ownerID })
-        let since = ((try? context.fetch(fetch)) ?? [])
-            .filter { ($0.expiresAt.map { $0 > nowMs } ?? true) && ($0.precision == "exact" || $0.precision == "place") }
-            .map(\.startedAt).min()
-        return PartnerAccess(since: since, places: places)
+    /// Each sharer's earliest live exact/place share start: one fetch.
+    private func arrivalShareStarts(nowMs: Int64) -> [UUID: Int64] {
+        var out: [UUID: Int64] = [:]
+        for e in (try? context.fetch(FetchDescriptor<ShareEntity>())) ?? [] {
+            if let exp = e.expiresAt, exp <= nowMs { continue }
+            guard e.precision == "exact" || e.precision == "place" else { continue }
+            out[e.ownerId] = min(out[e.ownerId] ?? .max, e.startedAt)
+        }
+        return out
     }
 
-    /// A partner's arrivals I may still see, newest first.
-    func visibleTransitions(ownerID: UUID, limit: Int, now: Date = Date()) -> [TransitionEntity] {
+    /// Every owner's arrivals I may see, newest first, at most
+    /// `partnerTransitionCap` each: my own rows as they are, a partner's by the
+    /// rule above. Three fetches in all; the sync layer publishes the result.
+    func transitionSnapshots(me: UUID, now: Date = Date()) -> [UUID: [TransitionDTO]] {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
         let places = Set(allPlaces().map(\.id))
-        let access = partnerAccess(ownerID, places: places, nowMs: Int64(now.timeIntervalSince1970 * 1000))
-        return Array(transitions(ownerID: ownerID).filter(access.allows).prefix(limit))
+        let starts = arrivalShareStarts(nowMs: nowMs)
+        let fetch = FetchDescriptor<TransitionEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        var out: [UUID: [TransitionDTO]] = [:]
+        for t in (try? context.fetch(fetch)) ?? [] {
+            if out[t.ownerId, default: []].count >= Self.partnerTransitionCap { continue }
+            if t.ownerId != me, !PartnerAccess(since: starts[t.ownerId], places: places).allows(t) { continue }
+            out[t.ownerId, default: []].append(t.dto)
+        }
+        return out
     }
 
     /// Delete partners' arrivals I may no longer see, and all but the newest
@@ -286,12 +303,11 @@ public final class TraxStore {
             predicate: #Predicate { $0.ownerId != me },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         let rows = (try? context.fetch(fetch)) ?? []
-        var access: [UUID: PartnerAccess] = [:]
+        let starts = arrivalShareStarts(nowMs: nowMs)
         var kept: [UUID: Int] = [:]
         var removed = false
         for t in rows {
-            let a = access[t.ownerId] ?? partnerAccess(t.ownerId, places: places, nowMs: nowMs)
-            access[t.ownerId] = a
+            let a = PartnerAccess(since: starts[t.ownerId], places: places)
             if a.allows(t), kept[t.ownerId, default: 0] < Self.partnerTransitionCap {
                 kept[t.ownerId, default: 0] += 1
             } else {
@@ -307,6 +323,9 @@ public final class TraxStore {
         let cut = cutoffMs ?? .max
         try? context.delete(model: TransitionEntity.self,
                             where: #Predicate { $0.ownerId == ownerID && $0.createdAt < cut })
+        // A batch delete can leave `hasChanges` false, so `save()` wouldn't
+        // count it: count it here so the published rows are rebuilt.
+        changes += 1
     }
 
     public func save() {
