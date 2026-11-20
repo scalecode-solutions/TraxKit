@@ -114,6 +114,26 @@ public extension TraxEngine {
     func recentTransitions(with person: UUID, limit: Int = 20) -> [TransitionDTO] {
         bridge.recentTransitions(with: person, limit: limit)
     }
+    /// A conversation's arrivals and departures, both sides, newest first: what
+    /// a thread with `person` shows. Theirs are what the server sent me (it
+    /// already applied their share's precision and start). Mine follow the same
+    /// rule from the other side, so the thread never claims they saw something
+    /// they didn't: only while I share with them at exact or place precision
+    /// (approx discloses no arrivals), and only since that share started. A
+    /// place I share with them but no live share isn't shown, because the device
+    /// doesn't know when the place was shared, so it can't tell which of my
+    /// crossings they received.
+    func threadTransitions(with person: UUID, limit: Int = 20) -> [TransitionDTO] {
+        let theirs = recentTransitions(with: person, limit: limit)
+        var mine: [TransitionDTO] = []
+        if let share = outgoingShares.first(where: { $0.viewerID == person }),
+           share.precision == .exact || share.precision == .place {
+            let since = Int64(share.startedAt.timeIntervalSince1970 * 1000)
+            mine = myRecentTransitions(limit: limit).filter { $0.createdAt >= since }
+        }
+        return Array((theirs + mine).sorted { $0.createdAt > $1.createdAt }.prefix(limit))
+    }
+
     /// My own recent arrivals and departures, newest first (durable across launches).
     func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] { bridge.myRecentTransitions(limit: limit) }
 

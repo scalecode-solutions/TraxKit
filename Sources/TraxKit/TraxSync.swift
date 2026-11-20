@@ -31,6 +31,9 @@ public final class TraxSync {
     private(set) var incomingList: [IncomingShareSnapshot] = []
     /// Places visible to me, published as values.
     private(set) var placeSnapshots: [PlaceSnapshot] = []
+    /// Each owner's arrivals I may see (me included), newest first, capped:
+    /// what a thread reads, so no view body fetches.
+    private(set) var transitionsByOwner: [UUID: [TransitionDTO]] = [:]
     /// The people directory (friends and me), by name, as values.
     private(set) var contacts: [TraxContact] = []
     /// The same directory by id, built once per change (every row looks names up).
@@ -124,9 +127,15 @@ public final class TraxSync {
             revision += 1
         }
         let inc = store.incomingSnapshots()
-        if inc != incoming {
+        let sharesMoved = inc != incoming
+        if sharesMoved {
             incoming = inc
             incomingList = inc.values.sorted { ($0.updatedAt, $0.shareID.uuidString) > ($1.updatedAt, $1.shareID.uuidString) }
+        }
+        // Who may see whose arrivals follows the shares (an expiry included).
+        if storeMoved || sharesMoved {
+            let rows = store.transitionSnapshots(me: currentUserID)
+            if rows != transitionsByOwner { transitionsByOwner = rows }
         }
         guard storeMoved else { return }
         let places = store.placeSnapshots()
@@ -190,6 +199,7 @@ public final class TraxSync {
         var loadFrom: Int64?
         var applied = false
         var firstPage = true
+        var complete = false
         // Publish whatever was applied, even if a later page fails.
         defer { if applied && current(gen) { publish() } }
         do {
@@ -204,7 +214,7 @@ public final class TraxSync {
                 store.applyFeedPage(page)
                 applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
-                guard page.hasMore else { break }
+                guard page.hasMore else { complete = true; break }
                 if page.isRevisioned {
                     // Revision order: keep `since` (transitions came on the first
                     // page), follow the server's cursor, stop if it doesn't move.
@@ -217,7 +227,12 @@ public final class TraxSync {
                     since = page.syncTs
                 }
             }
-            if store.deleteExpiredShares() { store.save(); applied = true }
+            var pruned = store.deleteExpiredShares()
+            // Only once the share set is whole (a reload's later pages named
+            // everyone), and only when something moved: a partner whose share
+            // went loses their stored arrivals.
+            if complete, applied || pruned, store.prunePartnerTransitions(me: currentUserID) { pruned = true }
+            if pruned { store.save(); applied = true }
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
@@ -422,6 +437,8 @@ public final class TraxSync {
             let places = try await transport.places()
             guard current(gen) else { return }
             store.replacePlaces(places)
+            // An unshared place takes a partner's arrivals there with it.
+            if store.prunePartnerTransitions(me: currentUserID) { store.save() }
             publish()
             pollSucceeded("places")
         } catch is CancellationError {
@@ -563,13 +580,17 @@ public final class TraxSync {
     /// rides the SAME @Observable path as the live feed, instead of a second source
     /// the host has to merge separately (which won't reliably refresh the UI).
     public func backfillTransitions(ownerID: UUID, limit: Int? = nil) async {
+        // A friend's history reads need an exact share (the server's History
+        // disclosure): for any other tier the request is refused, so don't make
+        // it (it only set lastError). Their arrivals still come in on the feed.
+        if ownerID != currentUserID, incoming[ownerID]?.precision != "exact" { return }
         let (trs, gen) = await fetchTransitions(ownerID: ownerID, since: nil, limit: limit)
         guard !trs.isEmpty, current(gen) else { return }
-        if ownerID == currentUserID {
-            for t in trs { store.upsertTransition(t) }   // server copies replace my local ones
-            store.save()
-            publish()
-        }
+        // Kept in the store for everyone (server copies replace my local twins),
+        // so a thread's rows survive a relaunch.
+        for t in trs { store.upsertTransition(t) }
+        store.save()
+        publish()
         mergeTransitions(trs)
     }
 

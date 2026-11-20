@@ -82,26 +82,24 @@ public final class TraxLocationStore {
         TraxRelationship(partnerID: partner, outgoing: outgoingShare(to: partner), incoming: summary(for: partner))
     }
 
-    /// `partner`'s recent enter/leave events visible to me (from the live feed) —
-    /// the events the chat bridge projects into the thread for that partner.
+    /// `partner`'s recent enter/leave events visible to me, newest first (at
+    /// most 100). Kept in the DURABLE store (the feed and backfill write them),
+    /// so a thread keeps them across relaunches and one busy partner can't push
+    /// out another's; read here as values the sync layer publishes when the
+    /// store or the shares move, so a view body does no fetch. Only what I may
+    /// still see shows (their exact/place share since it started, or a place I
+    /// hold): a stop or an expiry takes their rows away at once, and the next
+    /// feed or places sync deletes them.
     public func recentTransitions(with partner: UUID, limit: Int = 20) -> [TransitionDTO] {
-        Array(sync.recentTransitions.filter { $0.ownerId == partner }.prefix(limit))
+        Array((sync.transitionsByOwner[partner] ?? []).prefix(limit))
     }
 
-    /// My OWN recent enter/leave events — the "You arrived at X" side of a thread.
-    /// Reads the DURABLE SwiftData store (written the moment I cross in
-    /// `recordOwnTransition`), so it survives an app restart; the live buffer that
-    /// `recentTransitions(with:)` reads is only the reactivity trigger that makes the
-    /// row appear instantly. `sync.recentTransitions` is touched so the read re-runs
-    /// when a fresh crossing lands.
+    /// My OWN recent enter/leave events, the "You arrived at X" side of a
+    /// thread, newest first (at most 100). Written to the durable store the
+    /// moment I cross (`recordOwnTransition`), so they survive a restart, and
+    /// published the same way as a partner's.
     public func myRecentTransitions(limit: Int = 20) -> [TransitionDTO] {
-        _ = sync.revision            // observe the store → re-read it when it changes
-        _ = sync.recentTransitions   // …and the live buffer a fresh crossing lands in
-        return store.transitions(ownerID: sync.currentUserID, limit: limit).map {
-            TransitionDTO(id: $0.id, ownerId: $0.ownerId, placeId: $0.placeId,
-                          placeName: $0.placeName, placeEmoji: $0.placeEmoji,
-                          event: $0.event, createdAt: $0.createdAt)
-        }
+        Array((sync.transitionsByOwner[sync.currentUserID] ?? []).prefix(limit))
     }
 
     /// My OWN enter/leave events read back from mvTrax (durable) — backfills my side
@@ -145,5 +143,13 @@ public final class TraxLocationStore {
     public func stopSharing(_ placeID: UUID, with partner: UUID) async {
         try? await sync.unsharePlace(id: placeID, viewer: partner)
         await sync.loadPlaces()
+    }
+}
+
+extension TransitionEntity {
+    /// The stored crossing as a value.
+    var dto: TransitionDTO {
+        TransitionDTO(id: id, ownerId: ownerId, placeId: placeId, placeName: placeName,
+                      placeEmoji: placeEmoji, event: event, createdAt: createdAt)
     }
 }

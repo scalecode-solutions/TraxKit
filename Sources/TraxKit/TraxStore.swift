@@ -244,11 +244,88 @@ public final class TraxStore {
         return (try? context.fetch(fetch)) ?? []
     }
 
+    /// How many of one partner's arrivals are kept (newest first).
+    static let partnerTransitionCap = 100
+
+    /// Whether I may still see `t`, a partner's arrival, by the server's rule
+    /// (TransitionsForViewer): while they share with me at a tier that shows
+    /// arrivals (exact or place), from the start of that share; or at a place I
+    /// hold (mine, or one shared with me). A stop, an expiry or an unshared
+    /// place takes it away. The place lane deliberately has no start date: the
+    /// server also requires the arrival to postdate the place being shared with
+    /// me, which the client doesn't know; rows only ever come from the server,
+    /// which applied it.
+    private struct PartnerAccess {
+        let since: Int64?
+        let places: Set<UUID>
+        func allows(_ t: TransitionEntity) -> Bool {
+            if let since, t.createdAt >= since { return true }
+            return places.contains(t.placeId)
+        }
+    }
+
+    /// Each sharer's earliest live exact/place share start: one fetch.
+    private func arrivalShareStarts(nowMs: Int64) -> [UUID: Int64] {
+        var out: [UUID: Int64] = [:]
+        for e in (try? context.fetch(FetchDescriptor<ShareEntity>())) ?? [] {
+            if let exp = e.expiresAt, exp <= nowMs { continue }
+            guard e.precision == "exact" || e.precision == "place" else { continue }
+            out[e.ownerId] = min(out[e.ownerId] ?? .max, e.startedAt)
+        }
+        return out
+    }
+
+    /// Every owner's arrivals I may see, newest first, at most
+    /// `partnerTransitionCap` each: my own rows as they are, a partner's by the
+    /// rule above. Three fetches in all; the sync layer publishes the result.
+    func transitionSnapshots(me: UUID, now: Date = Date()) -> [UUID: [TransitionDTO]] {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let places = Set(allPlaces().map(\.id))
+        let starts = arrivalShareStarts(nowMs: nowMs)
+        let fetch = FetchDescriptor<TransitionEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        var out: [UUID: [TransitionDTO]] = [:]
+        for t in (try? context.fetch(fetch)) ?? [] {
+            if out[t.ownerId, default: []].count >= Self.partnerTransitionCap { continue }
+            if t.ownerId != me, !PartnerAccess(since: starts[t.ownerId], places: places).allows(t) { continue }
+            out[t.ownerId, default: []].append(t.dto)
+        }
+        return out
+    }
+
+    /// Delete partners' arrivals I may no longer see, and all but the newest
+    /// `partnerTransitionCap` of each partner's. My own rows (`me`) are left
+    /// alone. Returns whether any went.
+    @discardableResult
+    func prunePartnerTransitions(me: UUID, now: Date = Date()) -> Bool {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let places = Set(allPlaces().map(\.id))
+        let fetch = FetchDescriptor<TransitionEntity>(
+            predicate: #Predicate { $0.ownerId != me },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        let rows = (try? context.fetch(fetch)) ?? []
+        let starts = arrivalShareStarts(nowMs: nowMs)
+        var kept: [UUID: Int] = [:]
+        var removed = false
+        for t in rows {
+            let a = PartnerAccess(since: starts[t.ownerId], places: places)
+            if a.allows(t), kept[t.ownerId, default: 0] < Self.partnerTransitionCap {
+                kept[t.ownerId, default: 0] += 1
+            } else {
+                context.delete(t)
+                removed = true
+            }
+        }
+        return removed
+    }
+
     /// Drop an owner's enter/leave events from before `cutoffMs` (nil = all).
     func deleteTransitions(ownerID: UUID, before cutoffMs: Int64?) {
         let cut = cutoffMs ?? .max
         try? context.delete(model: TransitionEntity.self,
                             where: #Predicate { $0.ownerId == ownerID && $0.createdAt < cut })
+        // A batch delete can leave `hasChanges` false, so `save()` wouldn't
+        // count it: count it here so the published rows are rebuilt.
+        changes += 1
     }
 
     public func save() {
