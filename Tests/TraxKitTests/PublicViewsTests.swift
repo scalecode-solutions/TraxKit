@@ -1,5 +1,7 @@
 import Foundation
 import Testing
+import SwiftUI
+import UIKit
 @testable import TraxKit
 
 /// The logic under the public views (the views themselves run in TraxLab's UI
@@ -147,5 +149,60 @@ import Testing
     @Test func presetsSendTheirLength() {
         #expect(DurationChoice.preset(.oneHour).duration(current: nil, now: now) == .seconds(3600))
         #expect(DurationChoice.preset(.indefinite).duration(current: nil, now: now) == nil)
+    }
+}
+
+/// The screens that list places fetch them on open, not on the poll's slower
+/// places clock (hosted in a window, so the view's own `.task` is what runs).
+@MainActor
+@Suite struct PlacesReloadTests {
+    let me = UUID(), friend = UUID()
+
+    func rig() -> (FakeTraxTransport, FakeTraxLocationHost, TraxEngine) {
+        let t = FakeTraxTransport(), host = FakeTraxLocationHost()
+        let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
+        return (t, host, TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true)))
+    }
+
+    func show<V: View>(_ view: V, until done: () async -> Bool) async -> Bool {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+        window.rootViewController = UIHostingController(rootView: NavigationStack { view })
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        for _ in 0..<300 {
+            if await done() { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return await done()
+    }
+
+    @Test func settingsReloadsPlacesOnOpen() async {
+        let (t, _, e) = rig()
+        await t.setPlaces([Fixtures.place(owner: friend, name: "Theirs", lat: 30, lng: -90, sharedWith: [me])])
+        #expect(e.places.isEmpty)
+        #expect(await show(TraxSettingsView(engine: e)) { e.places.map(\.name) == ["Theirs"] })
+    }
+
+    @Test func pairSettingsReloadsPlacesOnOpen() async {
+        let (t, _, e) = rig()
+        await t.setPlaces([Fixtures.place(owner: me, name: "Mine", lat: 30, lng: -90)])
+        #expect(await show(TraxPairSettingsView(engine: e, otherID: friend)) { e.places.map(\.name) == ["Mine"] })
+    }
+
+    @Test func aStoppedEngineLeavesTheGeofenceAlone() async {
+        let (t, host, e) = rig()
+        await t.setPlaces([Fixtures.place(owner: me, name: "Mine", lat: 30, lng: -90)])
+        await e.reloadPlaces()
+        #expect(e.places.map(\.name) == ["Mine"])
+        #expect(host.regionSets.isEmpty, "a stopped engine re-handed regions")
+    }
+
+    @Test func aRunningEngineRehandsTheGeofence() async {
+        let (t, host, e) = rig()
+        e.start()
+        defer { e.stop() }
+        await t.setPlaces([Fixtures.place(owner: me, name: "Mine", lat: 30, lng: -90)])
+        await e.reloadPlaces()
+        #expect(host.regionSets.last?.count == 1)
     }
 }

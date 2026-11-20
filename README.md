@@ -58,7 +58,8 @@ body: `people`, `places`, `outgoingShares`, `isSharing`, `relationship(with:)`,
 `startSharing(with:precision:duration:)` (also how a live share is changed),
 `stopSharing(with:)`, `stopAllSharing()`, `addPlace` / `updatePlace` /
 `deletePlace`, `sharePlace` / `unsharePlace`, `clearHistory(before:)`,
-`timeline(of:day:)`.
+`timeline(of:day:)`. `reloadPlaces()` fetches places now instead of on the
+poll's places clock; the kit's settings and pair settings call it on open.
 
 ## Precision
 

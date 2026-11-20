@@ -111,6 +111,9 @@ public struct TraxSettingsView<Extra: View>: View {
         .navigationTitle("Location")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode, scope: .selfScoped) }
+        // The list is this screen's content: fresh on open, not on the poll's
+        // places clock (a place just shared with me shows at once).
+        .task { await engine.reloadPlaces() }
         .confirmationDialog("Stop sharing your location with everyone?", isPresented: $confirmStopAll,
                             titleVisibility: .visible) {
             Button("Stop sharing", role: .destructive) { run("Stopped sharing.") { try await engine.stopAllSharing() } }

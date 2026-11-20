@@ -211,6 +211,17 @@ public final class TraxEngine {
         pushDemand()
     }
 
+    /// Fetch my places (and the ones shared with me) now, rather than on the
+    /// poll's slower places clock: for a screen that lists them, on open. A
+    /// running engine also re-hands the geofence its regions; a stopped one
+    /// leaves the host's geofence alone.
+    public func reloadPlaces() async {
+        await sync.loadPlaces()
+        guard pollTask != nil else { return }
+        lastPlacesRefresh = Date()
+        pushRegions()
+    }
+
     /// Re-hand the kit's place-regions to the host's geofence (its rolling-20 merges
     /// them). Call after a place edit for an immediate update; the poll also refreshes.
     public func pushRegions() {

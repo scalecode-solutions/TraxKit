@@ -55,6 +55,8 @@ public struct TraxPairSettingsView: View {
             }
         }
         .traxBackdrop()
+        // Which places they see is this screen's content: fresh on open.
+        .task { await engine.reloadPlaces() }
         .navigationTitle("Location")
         .navigationBarTitleDisplayMode(.inline)
     }
