@@ -29,6 +29,7 @@ final class TraxLabUITests: XCTestCase {
         var launch = ["TRAX_DEV_TOKEN": token, "TRAX_DEV_USER": user]
         if let friend { launch["LAB_FRIEND"] = friend; launch["LAB_NICKNAME"] = nickname }
         if let start = startTab { launch["LAB_START"] = start }
+        if name.contains("WithoutTabBar") { launch["LAB_HIDE_TAB_BAR"] = "1" }
         app.launchEnvironment = launch
         // Location prompts would cover the hub; the test isn't about them.
         addUIInterruptionMonitor(withDescription: "location") { alert in
@@ -95,6 +96,59 @@ final class TraxLabUITests: XCTestCase {
         XCTAssert(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", nickname)).firstMatch
                     .waitForExistence(timeout: 5), "the person map doesn't use the host's name")
         shot("person-map")
+    }
+
+    /// The person map's card is drawn to the screen's bottom edge (its glass
+    /// under the home indicator, or under a host's tab bar), with no strip of
+    /// map below it, and the share button is still reachable above the edge.
+    func cardReachesTheBottomEdge() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
+        reachable(app.buttons["conversation.map"], "map link").tap()
+        let card = app.descendants(matching: .any)["person.card"].firstMatch
+        XCTAssert(card.waitForExistence(timeout: 15), "no person card")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertEqual(card.frame.maxY, screen.maxY, accuracy: 1,
+                       "the card stops \(screen.maxY - card.frame.maxY) pt above the bottom edge")
+        let start = app.buttons["share.start"], stop = app.buttons["share.stop"]
+        XCTAssert(start.waitForExistence(timeout: 5) || stop.exists, "no share controls")
+        shot("person-card-edge")
+    }
+
+    /// The standard deviation of the grey levels in the screen's bottom band
+    /// (the lowest 25 pt, above the very edge): ~4 over glass, far more over
+    /// an unblurred map.
+    func bottomBandSpread(_ shot: XCUIScreenshot) -> Double {
+        guard let cg = shot.image.cgImage else { return .infinity }
+        let w = cg.width, h = cg.height
+        var px = [UInt8](repeating: 0, count: w * h)
+        let ctx = CGContext(data: &px, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0)!
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let scale = Double(h) / Double(app.windows.firstMatch.frame.height)
+        let band = Int(25 * scale), skip = Int(4 * scale)
+        var values: [Double] = []
+        for y in stride(from: h - band, to: h - skip, by: 2) {
+            for x in stride(from: 0, to: w, by: 2) { values.append(Double(px[y * w + x])) }
+        }
+        let mean = values.reduce(0, +) / Double(values.count)
+        return (values.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(values.count)).squareRoot()
+    }
+
+    func testPersonMapCardReachesTheBottomEdge() throws { try cardReachesTheBottomEdge() }
+
+    /// The same with the tab bar hidden, as a chat host pushes it: nothing
+    /// covers the strip under the card there, so a gap would show.
+    func testPersonMapCardReachesTheBottomEdgeWithoutTabBar() throws {
+        try cardReachesTheBottomEdge()
+        XCTAssertFalse(app.tabBars.firstMatch.isHittable, "the tab bar should be hidden on this path")
+        // The card's frame reaches the edge even when its glass doesn't (the
+        // scroll view runs into the safe area on its own), so look at the
+        // pixels: the bottom band must be the card's frosted glass, nearly
+        // uniform, not the sharp map (roads, labels) a gap shows. (With a tab
+        // bar the band is the bar's icons, so this check is for this path.)
+        // Fails on 0.7.1's card: spread 33 against ~4 over glass.
+        let spread = bottomBandSpread(app.screenshot())
+        XCTAssertLessThan(spread, 12, "the bottom edge shows the map under the card (pixel spread \(spread))")
     }
 
     /// Pair settings from a conversation: my share to them and their places.

@@ -133,7 +133,18 @@ struct TraxPersonMap: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: maxHeight)
         .fixedSize(horizontal: false, vertical: true)
-        .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
+        // The card is laid out above the bottom safe area (the inset frames
+        // the camera), but it is drawn to the screen's edge: the glass and the
+        // scroll run on under the home indicator, or a host's tab bar, as
+        // Apple Maps' sheet does. The scroll view's automatic safe-area
+        // content inset keeps the last row resting above it.
+        .ignoresSafeArea(.container, edges: .bottom)
+        .background {
+            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
+                .fill(.clear)
+                .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
+                .ignoresSafeArea(.container, edges: .bottom)
+        }
         .accessibilityIdentifier("person.card")
     }
 
