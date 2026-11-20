@@ -190,6 +190,7 @@ public final class TraxSync {
         var loadFrom: Int64?
         var applied = false
         var firstPage = true
+        var complete = false
         // Publish whatever was applied, even if a later page fails.
         defer { if applied && current(gen) { publish() } }
         do {
@@ -204,7 +205,7 @@ public final class TraxSync {
                 store.applyFeedPage(page)
                 applied = true
                 if let trs = page.transitions, !trs.isEmpty { mergeTransitions(trs) }
-                guard page.hasMore else { break }
+                guard page.hasMore else { complete = true; break }
                 if page.isRevisioned {
                     // Revision order: keep `since` (transitions came on the first
                     // page), follow the server's cursor, stop if it doesn't move.
@@ -217,7 +218,11 @@ public final class TraxSync {
                     since = page.syncTs
                 }
             }
-            if store.deleteExpiredShares() { store.save(); applied = true }
+            var pruned = store.deleteExpiredShares()
+            // Only once the share set is whole (a reload's later pages named
+            // everyone): a partner whose share went loses their stored arrivals.
+            if complete, store.prunePartnerTransitions(me: currentUserID) { pruned = true }
+            if pruned { store.save(); applied = true }
             pollSucceeded("feed")
         } catch is CancellationError {
             // Benign — the next refresh covers it.
@@ -422,6 +427,8 @@ public final class TraxSync {
             let places = try await transport.places()
             guard current(gen) else { return }
             store.replacePlaces(places)
+            // An unshared place takes a partner's arrivals there with it.
+            if store.prunePartnerTransitions(me: currentUserID) { store.save() }
             publish()
             pollSucceeded("places")
         } catch is CancellationError {

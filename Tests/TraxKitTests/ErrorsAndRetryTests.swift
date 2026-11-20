@@ -166,7 +166,8 @@ import Testing
             Fixtures.transition(owner: friend, place: spot, event: "leave", at: base + 20_000),
             Fixtures.transition(owner: friend, place: spot, event: "enter", at: base + 40_000),
         ]
-        await t.queueFeed(Fixtures.page([], transitions: bounce))
+        // (They share with me: a partner's stored arrivals follow their share.)
+        await t.queueFeed(Fixtures.page([Fixtures.share(owner: friend, viewer: me)], transitions: bounce))
         await sync.refresh()
         #expect(Set(sync.recentTransitions.map(\.id)) == Set(bounce.map(\.id)))
         #expect(store.transitions(ownerID: friend).count == 3)

@@ -86,10 +86,14 @@ public final class TraxLocationStore {
     /// the DURABLE store (the feed and backfill write them there), so a thread
     /// keeps them across relaunches and one busy partner can't push out another's.
     /// The live buffer is touched only so the read re-runs when one lands.
+    /// Only what I may still see shows (their exact/place share since it
+    /// started, or a place I hold): a stop takes their rows away at once, and
+    /// the next feed or places sync deletes them.
     public func recentTransitions(with partner: UUID, limit: Int = 20) -> [TransitionDTO] {
         _ = sync.revision
         _ = sync.recentTransitions
-        return store.transitions(ownerID: partner, limit: limit).map(\.dto)
+        if partner == sync.currentUserID { return myRecentTransitions(limit: limit) }
+        return store.visibleTransitions(ownerID: partner, limit: limit).map(\.dto)
     }
 
     /// My OWN recent enter/leave events — the "You arrived at X" side of a thread.

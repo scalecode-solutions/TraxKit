@@ -244,6 +244,64 @@ public final class TraxStore {
         return (try? context.fetch(fetch)) ?? []
     }
 
+    /// How many of one partner's arrivals are kept (newest first).
+    static let partnerTransitionCap = 100
+
+    /// Whether I may still see `t`, a partner's arrival, by the server's rule:
+    /// while they share with me at a tier that shows arrivals (exact or place),
+    /// from the start of that share; or at a place I hold (mine, or one shared
+    /// with me). A stop, an expiry or an unshared place takes it away.
+    private struct PartnerAccess {
+        let since: Int64?
+        let places: Set<UUID>
+        func allows(_ t: TransitionEntity) -> Bool {
+            if let since, t.createdAt >= since { return true }
+            return places.contains(t.placeId)
+        }
+    }
+
+    private func partnerAccess(_ ownerID: UUID, places: Set<UUID>, nowMs: Int64) -> PartnerAccess {
+        let fetch = FetchDescriptor<ShareEntity>(predicate: #Predicate { $0.ownerId == ownerID })
+        let since = ((try? context.fetch(fetch)) ?? [])
+            .filter { ($0.expiresAt.map { $0 > nowMs } ?? true) && ($0.precision == "exact" || $0.precision == "place") }
+            .map(\.startedAt).min()
+        return PartnerAccess(since: since, places: places)
+    }
+
+    /// A partner's arrivals I may still see, newest first.
+    func visibleTransitions(ownerID: UUID, limit: Int, now: Date = Date()) -> [TransitionEntity] {
+        let places = Set(allPlaces().map(\.id))
+        let access = partnerAccess(ownerID, places: places, nowMs: Int64(now.timeIntervalSince1970 * 1000))
+        return Array(transitions(ownerID: ownerID).filter(access.allows).prefix(limit))
+    }
+
+    /// Delete partners' arrivals I may no longer see, and all but the newest
+    /// `partnerTransitionCap` of each partner's. My own rows (`me`) are left
+    /// alone. Returns whether any went.
+    @discardableResult
+    func prunePartnerTransitions(me: UUID, now: Date = Date()) -> Bool {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let places = Set(allPlaces().map(\.id))
+        let fetch = FetchDescriptor<TransitionEntity>(
+            predicate: #Predicate { $0.ownerId != me },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        let rows = (try? context.fetch(fetch)) ?? []
+        var access: [UUID: PartnerAccess] = [:]
+        var kept: [UUID: Int] = [:]
+        var removed = false
+        for t in rows {
+            let a = access[t.ownerId] ?? partnerAccess(t.ownerId, places: places, nowMs: nowMs)
+            access[t.ownerId] = a
+            if a.allows(t), kept[t.ownerId, default: 0] < Self.partnerTransitionCap {
+                kept[t.ownerId, default: 0] += 1
+            } else {
+                context.delete(t)
+                removed = true
+            }
+        }
+        return removed
+    }
+
     /// Drop an owner's enter/leave events from before `cutoffMs` (nil = all).
     func deleteTransitions(ownerID: UUID, before cutoffMs: Int64?) {
         let cut = cutoffMs ?? .max
