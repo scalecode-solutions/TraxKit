@@ -8,7 +8,7 @@
 #
 # With a friend who shares with the account, the conversation test runs too.
 # Env: SIMS (simulator names, space-separated, so a name can't contain a
-# space; the Lab sims' names don't; default "TraxLab-iPhone
+# space; the Lab sims' names don't; default "TraxLab-Small
 # TraxLab-27": iOS 26 AND iOS 27, because layout differs between them and a
 # 26-only gate let 0.7.2's card regress on 27, MVTRAX-39), SIM (one name,
 # overrides SIMS), DD (build folder: give each person their own), ONLY (one
@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 USER_ID=${1:?usage: scripts/ui-test.sh <test-account-uuid> [friend-uuid]}
 FRIEND=${2:-}
 SERVER=${SERVER:-../mvTrax}
-SIMS=${SIM:-${SIMS:-TraxLab-iPhone TraxLab-27}}
+SIMS=${SIM:-${SIMS:-TraxLab-Small TraxLab-27}}
 SHOTS=${SHOTS:-/tmp/traxlab-shots}
 DD=${DD:-/tmp/traxlab-dd}
 ONLY=${ONLY:-}
