@@ -10,17 +10,20 @@ public struct TraxRootView: View {
     let engine: TraxEngine
     private let embedded: Bool
     private let onSignOut: (() -> Void)?
+    private let appearance: TraxAppearance
 
-    public init(engine: TraxEngine, embedded: Bool = false, onSignOut: (() -> Void)? = nil) {
+    public init(engine: TraxEngine, embedded: Bool = false, onSignOut: (() -> Void)? = nil,
+                appearance: TraxAppearance = .standard) {
         self.engine = engine
         self.embedded = embedded
         self.onSignOut = onSignOut
+        self.appearance = appearance
     }
 
     public var body: some View {
         // No gate — the map is just there (watch-only) until you decide to share.
         // The host owns location + the auth prompt; the kit just renders.
-        TraxHub(engine: engine, embedded: embedded, onSignOut: onSignOut)
+        TraxHub(engine: engine, embedded: embedded, onSignOut: onSignOut, appearance: appearance)
             .background { RegionSyncer(engine: engine) }   // immediate region reconcile on place edits
     }
 }

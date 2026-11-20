@@ -11,6 +11,7 @@ public struct TraxHub: View {
     let engine: TraxEngine
     let embedded: Bool
     let onSignOut: (() -> Void)?
+    let appearance: TraxAppearance
 
     private var sync: TraxSync { engine.sync }
     private var weather: TraxWeatherStore { engine.weather }
@@ -20,8 +21,9 @@ public struct TraxHub: View {
         engine.currentFix.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
     }
 
-    public init(engine: TraxEngine, embedded: Bool = false, onSignOut: (() -> Void)? = nil) {
-        self.engine = engine; self.embedded = embedded; self.onSignOut = onSignOut
+    public init(engine: TraxEngine, embedded: Bool = false, onSignOut: (() -> Void)? = nil,
+                appearance: TraxAppearance = .standard) {
+        self.engine = engine; self.embedded = embedded; self.onSignOut = onSignOut; self.appearance = appearance
     }
 
     // Published values from the engine (no SwiftData reads in a body).
@@ -153,7 +155,7 @@ public struct TraxHub: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        TraxSettingsView(engine: engine) {
+                        TraxSettingsView(engine: engine, appearance: appearance) {
                             if let onSignOut {
                                 Section { Button("Sign Out", role: .destructive) { onSignOut() } }
                             }
@@ -167,7 +169,9 @@ public struct TraxHub: View {
             .sheet(isPresented: $showShareSheet) {
                 TraxShareSheet(engine: engine).presentationDetents([.medium, .large])
             }
-            .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode) }
+            // Self-scoped, as in settings: who sees which place is chosen per
+            // person (pair settings), never from one central list.
+            .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode, scope: .selfScoped) }
             .navigationDestination(item: $historyTarget) { t in
                 TraxTimelineView(sync: sync, owner: t.ownerId, title: t.name)
             }
@@ -347,9 +351,8 @@ public struct TraxHub: View {
                     onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })
             } else {
                 TraxHubDetailContent(
-                    person: subject, sync: sync, weather: weather, geocoder: geocoder,
-                    selfCoordinate: selfCoordinate, myPlaces: places,
-                    onShare: { showShareSheet = true },
+                    person: subject, engine: engine, appearance: appearance, weather: weather, geocoder: geocoder,
+                    selfCoordinate: selfCoordinate,
                     onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
                                                                lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
                     onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })

@@ -79,6 +79,25 @@ final class TraxLabUITests: XCTestCase {
         return e
     }
 
+    /// The hub's person detail is the person map's card (MVTRAX-40 K-a): tapping
+    /// a friend in the People sheet shows my share controls to them in the
+    /// panel, under the host's name for them, with no separate "recent
+    /// activity" list of its own.
+    func testHubPersonDetailHasTheCard() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND") }
+        XCTAssert(app.maps.firstMatch.waitForExistence(timeout: 15), "the hub's map didn't load")
+        app.tap()
+        let row = app.descendants(matching: .any)
+            .containing(NSPredicate(format: "label CONTAINS %@", nickname)).firstMatch
+        XCTAssert(row.waitForExistence(timeout: 15), "no row for the friend in the People sheet")
+        row.tap()
+        let start = app.buttons["share.start"], stop = app.buttons["share.stop"]
+        XCTAssert(start.waitForExistence(timeout: 10) || stop.exists,
+                  "the hub's person detail has no share controls (not the shared card)")
+        XCTAssertFalse(app.staticTexts["RECENT ACTIVITY"].exists, "the detail still has its own activity list")
+        shot("hub-person-detail")
+    }
+
     /// The person map from a conversation: the card shows their status and my
     /// share controls, all reachable above the tab bar at any text size.
     func testPersonMapFromConversation() throws {

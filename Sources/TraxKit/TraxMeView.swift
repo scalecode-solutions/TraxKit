@@ -102,12 +102,12 @@ struct TraxMeView: View {
                 }
                 HStack(spacing: 10) {
                     Button(action: onShare) { Label("Add", systemImage: "plus").frame(maxWidth: .infinity) }
-                        .buttonStyle(.bordered)
+                        .traxSecondaryAction()
                     Button(role: .destructive) { goInvisible() } label: {
                         if stoppingAll { ProgressView().frame(maxWidth: .infinity) }
                         else { Label("Go invisible", systemImage: "eye.slash").frame(maxWidth: .infinity) }
                     }
-                    .buttonStyle(.bordered)
+                    .traxDestructiveAction()
                 }
                 .padding(.horizontal, 16).padding(.top, 4)
             }
@@ -156,7 +156,7 @@ struct TraxMeView: View {
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(.tint.opacity(0.12), in: .capsule)
-        .foregroundStyle(.tint)
+        .foregroundStyle(Color.primary)   // words, not the tint (0.7.3)
     }
 
     private func precisionIcon(_ p: SharePrecision) -> String {
@@ -277,7 +277,7 @@ struct TraxMeView: View {
         Button(action: onHistory) {
             Label("Location history", systemImage: "clock.arrow.circlepath").frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
+        .traxSecondaryAction()
     }
 
     private func sectionTitle(_ s: String) -> some View {

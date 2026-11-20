@@ -2,32 +2,31 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-// In-panel detail for a tapped person — self or peer. Same visual stack; only the
+// In-panel detail for a tapped friend (self opens TraxMeView instead, from
+// TraxHub's panelContent). Same visual stack; only the
 // data source + actions differ. Replaces the old detented member sheet (the earlier version's
 // model: the hub map/controls stay put, only the panel content swaps to detail).
 
 struct TraxHubDetailContent: View {
     let person: TraxPerson
-    let sync: TraxSync
+    let engine: TraxEngine
+    let appearance: TraxAppearance
     let weather: TraxWeatherStore
     let geocoder: TraxGeocoder
     let selfCoordinate: CLLocationCoordinate2D?
-    let myPlaces: [PlaceSnapshot]
-    let onShare: () -> Void
     let onWeather: () -> Void
     let onHistory: () -> Void
-
-    private var transitions: [TransitionDTO] {
-        sync.recentTransitions.filter { $0.ownerId == person.ownerId }.prefix(5).map { $0 }
-    }
 
     var body: some View {
         VStack(spacing: 16) {
             personCard.padding(.horizontal, 16)
             actionRow.padding(.horizontal, 16)
-            activitySection
+            // My share to them, our places, their arrivals: the same content as
+            // their person map's card (one implementation; arrivals share-gated
+            // and durable). The header above stands in for its status line.
+            TraxPersonCardContent(engine: engine, personID: person.ownerId, appearance: appearance, showsStatus: false)
+                .padding(.horizontal, 16)
             weatherMini.padding(.horizontal, 16)
-            if person.isSelf { placesSection }
             historyButton.padding(.horizontal, 16)
             Color.clear.frame(height: 16)
         }
@@ -58,7 +57,7 @@ struct TraxHubDetailContent: View {
                 Spacer(minLength: 0)
                 TraxBatteryPill(battery: person.battery)
             }
-            if !person.isSelf, let d = distanceText {
+            if let d = distanceText {
                 HStack(spacing: 6) {
                     Image(systemName: "ruler").font(.caption)
                     Text(d).font(.system(.subheadline))
@@ -85,15 +84,11 @@ struct TraxHubDetailContent: View {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            if person.isSelf {
-                actionButton("Share", "person.crop.circle.badge.plus", disabled: false, action: onShare)
-            } else {
-                actionButton("Directions", "arrow.triangle.turn.up.right.diamond.fill", disabled: false) {
-                    openInMaps()
-                }
-                // No disabled stubs (Check In, Message): a control that can't do
-                // anything isn't shown.
+            actionButton("Directions", "arrow.triangle.turn.up.right.diamond.fill", disabled: false) {
+                openInMaps()
             }
+            // No disabled stubs (Check In, Message): a control that can't do
+            // anything isn't shown.
         }
     }
 
@@ -115,30 +110,6 @@ struct TraxHubDetailContent: View {
         let item = MKMapItem(location: CLLocation(latitude: c.latitude, longitude: c.longitude), address: nil)
         item.name = person.name
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
-    }
-
-    // MARK: activity
-
-    private var activitySection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("RECENT ACTIVITY")
-            if transitions.isEmpty {
-                Text("Nothing recent.").font(.system(.subheadline)).foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-            } else {
-                ForEach(transitions) { t in
-                    HStack(spacing: 12) {
-                        Circle().fill(.secondary.opacity(0.4)).frame(width: 8, height: 8)
-                        Text("\(t.event == "enter" ? "Arrived at" : "Left") \(t.placeEmoji.map { "\($0) " } ?? "")\(t.placeName)")
-                            .font(.system(.subheadline, weight: .medium)).lineLimit(2)
-                        Text("· \(Self.relative(t.createdAt))").font(.system(.footnote)).foregroundStyle(.secondary)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, 5).padding(.horizontal, 20)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: weather mini
@@ -175,37 +146,11 @@ struct TraxHubDetailContent: View {
 
     // MARK: self places
 
-    private var placesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("PLACES")
-            if myPlaces.isEmpty {
-                Text("No saved places.").font(.system(.subheadline)).foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(myPlaces) { p in
-                        HStack(spacing: 10) {
-                            Text(p.emoji ?? "📍").font(.system(.title2)).frame(width: 34, height: 34)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.system(.subheadline, weight: .semibold)).lineLimit(2)
-                                Text("\(p.radiusM) m").font(.system(.caption2)).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(10).background(.tint.opacity(0.05), in: .rect(cornerRadius: 12))
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var historyButton: some View {
         Button(action: onHistory) {
             Label("Location history", systemImage: "clock.arrow.circlepath").frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
+        .traxSecondaryAction()
     }
 
     private func sectionTitle(_ s: String) -> some View {
@@ -213,11 +158,4 @@ struct TraxHubDetailContent: View {
             .padding(.horizontal, 20)
     }
 
-    private static func relative(_ ms: Int64) -> String {
-        let secs = Int(Date().timeIntervalSince1970 - Double(ms) / 1000)
-        if secs < 60 { return "just now" }
-        if secs < 3600 { return "\(secs / 60)m ago" }
-        if secs < 86400 { return "\(secs / 3600)h ago" }
-        return "\(secs / 86400)d ago"
-    }
 }
