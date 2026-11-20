@@ -40,8 +40,11 @@ public struct TraxSettingsView<Extra: View>: View {
     private func placeRow(_ place: TraxPlace) -> some View {
         Button { edit(place) } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(placeTitle(place)).foregroundStyle(.primary)
-                Text(subtitle(place)).font(.subheadline).foregroundStyle(.secondary)
+                // Color.primary/.secondary, not .primary: inside a Button those
+                // are relative to the button's tint, which read as links (and
+                // dark tint on dark for the subtitle).
+                Text(placeTitle(place)).foregroundStyle(Color.primary)
+                Text(subtitle(place)).font(.subheadline).foregroundStyle(Color.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())

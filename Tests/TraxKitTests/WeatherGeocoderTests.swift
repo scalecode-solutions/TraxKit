@@ -1,5 +1,7 @@
 import Foundation
 import Testing
+import SwiftUI
+import UIKit
 @testable import TraxKit
 
 /// A weather provider that records what it was asked for.
@@ -110,5 +112,43 @@ actor FakeGeocoder: TraxReverseGeocoding {
         }
         #expect(geo.cachedLabel(latitude: 0, longitude: 0, exact: false) == nil, "the oldest wasn't evicted")
         #expect(geo.cachedLabel(latitude: Double(TraxGeocoder.cap + 4), longitude: 0, exact: false) != nil)
+    }
+}
+
+/// The badge on screen: it fetches for itself, also when it shows nothing
+/// until there's weather (the person card's quiet badge and the plain one,
+/// cold cache). Hosted in a window, so the view's own `.task` is what runs:
+/// removing it fails all three.
+@MainActor
+@Suite struct WeatherBadgeFetchTests {
+    func fetches(_ badge: TraxWeatherBadge, provider p: RecordingWeather) async -> Bool {
+        let host = UIHostingController(rootView: badge)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 200))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        for _ in 0..<300 where p.asked.isEmpty {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return !p.asked.isEmpty
+    }
+
+    @Test func theExplainingBadgeFetches() async {   // the harness itself
+        let p = RecordingWeather()
+        let store = TraxWeatherStore(provider: p, now: Date.init)
+        #expect(await fetches(TraxWeatherBadge(store: store, latitude: 30, longitude: -90, showCondition: true), provider: p))
+    }
+
+    @Test func thePlainBadgeFetchesFromAColdCache() async {
+        let p = RecordingWeather()
+        let store = TraxWeatherStore(provider: p, now: Date.init)
+        #expect(await fetches(TraxWeatherBadge(store: store, latitude: 30, longitude: -90), provider: p))
+    }
+
+    @Test func theQuietBadgeFetchesFromAColdCache() async {
+        let p = RecordingWeather()
+        let store = TraxWeatherStore(provider: p, now: Date.init)
+        #expect(await fetches(TraxWeatherBadge(store: store, latitude: 30, longitude: -90, showCondition: true)
+            .quietWhenEmpty(), provider: p))
     }
 }

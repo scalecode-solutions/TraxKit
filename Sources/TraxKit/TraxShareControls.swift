@@ -138,7 +138,17 @@ struct TraxShareControls: View {
     @ViewBuilder
     private func picker<V: Hashable, C: View>(_ title: String, selection: Binding<V>, id: String,
                                               @ViewBuilder content: () -> C) -> some View {
-        if useMenus {
+        if typeSize.isAccessibilitySize {
+            // Title above its menu: side by side, the largest sizes break the
+            // words ("Dura-tion") outside a List, which stacks on its own.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Picker(title, selection: selection, content: content).pickerStyle(.menu).labelsHidden()
+                    .frame(minHeight: 44)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(id)
+        } else if useMenus {
             LabeledContent(title) {
                 // Hidden: LabeledContent shows the title (a List would show it twice).
                 Picker(title, selection: selection, content: content).pickerStyle(.menu).labelsHidden()

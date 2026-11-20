@@ -307,10 +307,18 @@ public struct TraxWeatherBadge: View {
     let latitude: Double
     let longitude: Double
     var showCondition = false
+    /// Say why it's empty ("Loading weather…", "Weather unavailable"): where
+    /// the badge is the row's content. Off where it's an accessory beside
+    /// other content (it renders nothing until there's weather).
+    var explainsEmpty = false
 
     public init(store: TraxWeatherStore, latitude: Double, longitude: Double, showCondition: Bool = false) {
         self.store = store; self.latitude = latitude; self.longitude = longitude; self.showCondition = showCondition
+        self.explainsEmpty = showCondition
     }
+
+    /// The same badge, empty until there's weather.
+    func quietWhenEmpty() -> Self { var b = self; b.explainsEmpty = false; return b }
 
     public var body: some View {
         Group {
@@ -320,7 +328,7 @@ public struct TraxWeatherBadge: View {
                     Text(w.tempText)
                     if showCondition { Text(w.condition).foregroundStyle(.secondary) }
                 }
-            } else if showCondition {
+            } else if explainsEmpty {
                 // Where the badge is the row's content, say why it's empty.
                 Text(store.isLoading(latitude: latitude, longitude: longitude) ? "Loading weather…" : "Weather unavailable")
                     .foregroundStyle(.secondary)
