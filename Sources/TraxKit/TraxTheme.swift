@@ -81,13 +81,13 @@ extension View {
     /// A secondary action on glass: a glass capsule with the label in the
     /// text colour, never the host's tint (tinted text misses AA on glass).
     func traxSecondaryAction() -> some View {
-        buttonStyle(.glass).foregroundStyle(Color.primary)
+        modifier(TraxPanelButtonStyle()).foregroundStyle(Color.primary)
     }
 
     /// A destructive action on glass: explicit red, which a host's tint
     /// can't override (the role alone shows the tint on a styled button).
     func traxDestructiveAction() -> some View {
-        buttonStyle(.glass).foregroundStyle(TraxPalette.destructive)
+        modifier(TraxPanelButtonStyle()).foregroundStyle(TraxPalette.destructive)
     }
 
     /// The kit's backdrop behind a list or form (its own background hidden).

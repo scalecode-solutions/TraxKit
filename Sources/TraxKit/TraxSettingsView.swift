@@ -12,6 +12,11 @@ public struct TraxSettingsView<Extra: View>: View {
     let extra: Extra
 
     @State private var editing: PlaceEdit?
+    @AppStorage(TraxPanelStyle.storageKey) private var storedPanelStyle: String?
+    private var panelStyle: Binding<TraxPanelStyle> {
+        Binding(get: { TraxPanelStyle.resolved(stored: storedPanelStyle, default: appearance.panelStyle) },
+                set: { storedPanelStyle = $0.rawValue })
+    }
     @State private var confirmStopAll = false
     @State private var confirmClear = false
     @State private var busy = false
@@ -88,6 +93,18 @@ public struct TraxSettingsView<Extra: View>: View {
                 } footer: {
                     Text("Places friends share with you. You can both adjust one; its name and type are theirs.")
                 }
+            }
+
+            Section {
+                Picker("Map panels", selection: panelStyle) {
+                    ForEach(TraxPanelStyle.allCases) { Text($0.label).tag($0) }
+                }
+                .tint(Color.primary)   // the value is text: never the host's tint
+                .accessibilityIdentifier("settings.panelStyle")
+            } header: {
+                Text("Look")
+            } footer: {
+                Text("How the panels over the map look. Clear glass takes on the map's colours; the others hold back more of the map.")
             }
 
             Section {

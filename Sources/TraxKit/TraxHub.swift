@@ -292,6 +292,12 @@ public struct TraxHub: View {
     // MARK: panel
 
     private func panel(available: CGFloat) -> some View {
+        TraxPanelStyleReader(fallback: appearance.panelStyle) { style in
+            panelBody(available: available, style: style)
+        }
+    }
+
+    private func panelBody(available: CGFloat, style: TraxPanelStyle) -> some View {
         let h = panelHeight(available: available)
         return VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -332,9 +338,8 @@ public struct TraxHub: View {
             // tab bar and the home indicator. Reads the inset implicitly — works
             // for the bare home indicator (TraxLab standalone) and a host's tab
             // bar alike.
-            Color.clear
-                .traxGlass(in: UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 0,
-                                                      bottomTrailingRadius: 0, topTrailingRadius: 22))
+            TraxPanelSurface(style: style, shape: UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 0,
+                                                                         bottomTrailingRadius: 0, topTrailingRadius: 22))
                 .ignoresSafeArea(.container, edges: .bottom)
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: detent)
