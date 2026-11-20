@@ -25,6 +25,11 @@ public struct TraxAppearance: Sendable {
     /// read the tint, so the host picks what holds 4.5:1 on it, per scheme
     /// if its tint changes with the scheme. White by default.
     public var onTint: Color
+    /// The colour of place markers on the maps (MapKit needs a real colour
+    /// there: a marker tinted with the environment's `.tint` resolves to
+    /// itself and recurses until the stack runs out, MVTRAX-43). The host
+    /// passes its brand colour; nil is the system marker red.
+    public var mapTint: Color?
 
     public init(notSharing: String = "%@ isn't sharing their location",
                 shareButton: String = "Share My Location with %@",
@@ -34,7 +39,8 @@ public struct TraxAppearance: Sendable {
                 clearHistory: String = "Clear location history",
                 accessFooter: String = "Location is only used while you share it with someone, or for arrivals at your places.",
                 onTint: Color = .white,
-                panelStyle: TraxPanelStyle = .clear) {
+                panelStyle: TraxPanelStyle = .clear,
+                mapTint: Color? = nil) {
         self.notSharing = notSharing
         self.shareButton = shareButton
         self.sharingWith = sharingWith
@@ -44,6 +50,7 @@ public struct TraxAppearance: Sendable {
         self.accessFooter = accessFooter
         self.onTint = onTint
         self.panelStyle = panelStyle
+        self.mapTint = mapTint
     }
 
     public static let standard = TraxAppearance()

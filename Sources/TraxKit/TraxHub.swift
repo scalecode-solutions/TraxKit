@@ -353,7 +353,8 @@ public struct TraxHub: View {
                     onShare: { showShareSheet = true },
                     onWeather: { weatherTarget = WeatherTarget(ownerId: subject.ownerId, name: subject.name,
                                                                lat: subject.coordinate.latitude, lng: subject.coordinate.longitude) },
-                    onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) })
+                    onHistory: { historyTarget = HistoryTarget(ownerId: subject.ownerId, name: subject.name) },
+                    mapTint: appearance.mapTint)
             } else {
                 TraxHubDetailContent(
                     person: subject, engine: engine, appearance: appearance, weather: weather, geocoder: geocoder,
