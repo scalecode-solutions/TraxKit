@@ -12,7 +12,7 @@ final class TraxLabUITests: XCTestCase {
     /// Where the Lab opens for this test (LAB_START); nil = the map.
     var startTab: String? {
         switch name {
-        case let n where n.contains("Settings]") && !n.contains("Pair"): "me"
+        case let n where n.contains(" testSettings"): "me"
         case let n where n.contains("Conversation") || n.contains("PersonMap") || n.contains("Pair"): "chats"
         default: nil
         }
@@ -111,10 +111,34 @@ final class TraxLabUITests: XCTestCase {
 
     /// My settings: places, stop all, clear history, all reachable.
     func testSettings() {
+        _ = app.buttons["settings.addPlace"].waitForExistence(timeout: 15)
+        shot("settings-top")   // the access row, before any scroll
         reachable(app.buttons["settings.addPlace"], "add place")
         reachable(app.buttons["settings.clearHistory"], "clear history")
         reachable(app.buttons["settings.stopAll"], "stop all")
         shot("settings")
+    }
+
+    /// A place a friend shares with me (LAB_FRIEND shares one with this
+    /// account): listed under Shared with me as "Shared by <host name>". It
+    /// opens as a member: its name is the owner's, the rest is mine to adjust.
+    func testSettingsSharedWithMe() throws {
+        guard friend != nil else { throw XCTSkip("set LAB_FRIEND to a friend who shares a place with this account") }
+        let row = reachable(app.buttons["settings.sharedPlace"].firstMatch, "a place shared with me", timeout: 20)
+        XCTAssert(row.label.contains("Shared by \(nickname)"), "the shared place's row reads \(row.label)")
+        shot("settings-shared-with-me")
+        row.tap()
+        XCTAssert(app.navigationBars["Edit place"].waitForExistence(timeout: 5), "a friend's place didn't open")
+        XCTAssert(app.buttons["Save"].exists, "a member can't save their adjustments")
+        XCTAssertFalse(app.textFields["place.name"].isEnabled, "a member can rename a friend's place")
+        XCTAssertFalse(app.descendants(matching: .any)["place.type"].exists, "a member can change a friend's place's type")
+        // A sheet: the tab bar is behind it, so scroll the form rather than
+        // use reachable(), which keeps elements clear of the bar.
+        let sharedBy = app.staticTexts["place.sharedBy"]
+        for _ in 0..<6 where !(sharedBy.exists && sharedBy.isHittable) { app.swipeUp() }
+        XCTAssert(sharedBy.exists, "no line saying who shares it")
+        XCTAssert(sharedBy.label.contains(nickname), "the editor doesn't use the host's name: \(sharedBy.label)")
+        shot("settings-shared-place")
     }
 
     /// The conversation's header reads the kit's bridge. With a friend who

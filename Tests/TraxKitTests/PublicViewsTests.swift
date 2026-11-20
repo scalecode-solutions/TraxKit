@@ -31,6 +31,57 @@ import Testing
         #expect(TraxShareDirection(e.relationship(with: friend)) == .theyShare)
     }
 
+    @Test func badgeGlyphsAreDistinctAndHostCanReplaceThem() {
+        let std = TraxShareGlyphs.standard
+        #expect(Set([std.outgoing, std.incoming, std.both]).count == 3)
+        #expect(std.glyph(for: .iShare) == std.outgoing)
+        #expect(std.glyph(for: .theyShare) == std.incoming)
+        #expect(std.glyph(for: .both) == std.both)
+
+        let host = TraxShareGlyphs(outgoing: .asset("share.out"), incoming: .asset("share.in"),
+                                   both: .system("circle"))
+        #expect(host.glyph(for: .iShare) == .asset("share.out"))
+        #expect(host.glyph(for: .theyShare) == .asset("share.in"))
+        #expect(host.glyph(for: .both) == .system("circle"))
+    }
+
+    @Test func badgeScalingIsCapped() {
+        let e = engine(FakeTraxTransport())
+        #expect(TraxShareBadge(engine: e, otherID: friend, size: 12).maxSize == 18)
+        #expect(TraxShareBadge(engine: e, otherID: friend, size: 12, maxSize: 16).maxSize == 16)
+        // A cap below the base size never shrinks the badge.
+        #expect(TraxShareBadge(engine: e, otherID: friend, size: 12, maxSize: 8).maxSize == 12)
+    }
+
+    @Test func settingsSplitMyPlacesFromOnesSharedWithMe() async {
+        let t = FakeTraxTransport()
+        let e = engine(t)
+        let other = UUID()
+        await t.setContacts([TraxContact(id: friend, name: "Friend")])
+        await e.sync.loadContacts()
+        await t.setPlaces([
+            Fixtures.place(owner: me, name: "Mine", lat: 30, lng: -90),
+            Fixtures.place(owner: me, name: "Ours", lat: 30, lng: -90, sharedWith: [friend, other]),
+            Fixtures.place(owner: friend, name: "Theirs", lat: 30, lng: -90),
+        ])
+        await e.sync.loadPlaces()
+        let byName = Dictionary(uniqueKeysWithValues: e.places.map { ($0.name, $0) })
+        let names = TraxDisplayNames { $0 == friend ? "Nick" : nil }
+        let name: (UUID) -> String = { names.name(for: $0, people: e.people) }
+
+        #expect(traxPlaceSubtitle(byName["Mine"]!, name: name) == "Custom")
+        #expect(traxPlaceSubtitle(byName["Ours"]!, name: name)
+                == "Shared with Nick, Member \(other.uuidString.prefix(8))")
+        #expect(traxPlaceSubtitle(byName["Theirs"]!, name: name) == "Shared by Nick")
+        #expect(byName["Theirs"]?.isMine == false)
+    }
+
+    @Test func placeEditorAccessFollowsTheServerRule() {
+        #expect(PlaceEditorAccess(isNew: true, ownerID: nil, me: me) == .full)
+        #expect(PlaceEditorAccess(isNew: false, ownerID: me, me: me) == .full)
+        #expect(PlaceEditorAccess(isNew: false, ownerID: friend, me: me) == .member)
+    }
+
     @Test func appearanceFillsInTheName() {
         let a = TraxAppearance(notSharing: "%@ is hidden")
         #expect(a.with(a.notSharing, "Sam") == "Sam is hidden")

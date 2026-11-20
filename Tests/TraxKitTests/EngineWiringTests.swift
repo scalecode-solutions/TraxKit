@@ -63,15 +63,22 @@ import Testing
     /// A share reaching its expiresAt drops demand on its own, with no tick or ack.
     @Test func expiryDropsDemand() async {
         let t = FakeTraxTransport()
-        await t.setOutgoing([Fixtures.share(owner: me, viewer: friend,
-                                            expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + 1500)])
+        func share(expiringIn ms: Int64) -> ShareDTO {
+            Fixtures.share(owner: me, viewer: friend, expiresAt: Int64(Date().timeIntervalSince1970 * 1000) + ms)
+        }
+        // A long share first, so a start that's slow under a loaded parallel
+        // run can't outlive it; then a short one whose expiry is the test.
+        await t.setOutgoing([share(expiringIn: 3_600_000)])
         let host = FakeTraxLocationHost()
         let config = TraxConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: me, tokenProvider: { nil })
         let engine = TraxEngine(config: config, host: host, transport: t, store: TraxStore(inMemory: true))
         engine.start()
-        #expect(await eventually { host.lastDemand == .continuous })
+        #expect(await eventually(within: 1000) { host.lastDemand == .continuous })
         engine.setForeground(false)
-        #expect(await eventually(within: 400) { host.lastDemand == .off })
+        await t.setOutgoing([share(expiringIn: 1500)])
+        await engine.sync.refreshOutgoing()
+        #expect(host.lastDemand == .continuous, "still live until it expires")
+        #expect(await eventually(within: 800) { host.lastDemand == .off })
         engine.stop()
     }
 
