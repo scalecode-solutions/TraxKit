@@ -16,6 +16,7 @@ public struct TraxSettingsView<Extra: View>: View {
     @State private var confirmClear = false
     @State private var busy = false
     @State private var message: String?
+    @Environment(\.traxDisplayNames) private var names
 
     public init(engine: TraxEngine, appearance: TraxAppearance = .standard, @ViewBuilder extra: () -> Extra) {
         self.engine = engine
@@ -24,14 +25,15 @@ public struct TraxSettingsView<Extra: View>: View {
     }
 
     private var me: TraxContact? { engine.people[engine.currentUserID] }
+    private var myName: String { names.name(for: engine.currentUserID, people: engine.people, fallback: "You") }
     private var myPlaces: [TraxPlace] { engine.places.filter(\.isMine) }
 
     public var body: some View {
         List {
             Section {
                 HStack(spacing: 12) {
-                    TraxAvatar(id: engine.currentUserID, name: me?.name, avatarBase64: me?.avatar, size: 52)
-                    Text(me?.name ?? "You").font(.headline)
+                    TraxAvatar(id: engine.currentUserID, name: myName, avatarBase64: me?.avatar, size: 52)
+                    Text(myName).font(.headline)
                 }
                 .padding(.vertical, 4)
             }

@@ -48,12 +48,10 @@ public struct TraxHub: View {
 
     // MARK: derived people
 
+    @Environment(\.traxDisplayNames) private var names
     private var contactsByID: [UUID: TraxContact] { sync.contactsByID }
-    private func name(for id: UUID) -> String {
-        let n = contactsByID[id]?.name
-        if let n, !n.isEmpty { return n }
-        return "Member \(id.uuidString.prefix(8))"
-    }
+    private func name(for id: UUID) -> String { names.name(for: id, people: contactsByID) }
+    private var selfName: String { names.name(for: sync.currentUserID, people: contactsByID, fallback: "You") }
     private func avatar(for id: UUID) -> String? { contactsByID[id]?.avatar }
 
     private func placeMatch(_ coord: CLLocationCoordinate2D) -> PlaceSnapshot? {
@@ -72,6 +70,8 @@ public struct TraxHub: View {
         let fix = engine.currentFix
         let key = HubPeopleMemo.Key(
             incoming: incoming, contacts: contacts, places: places,
+            // The host's names live outside the engine, so the memo keys on them too.
+            names: [selfName] + incoming.map { name(for: $0.ownerID) },
             fixLat: fix?.lat, fixLng: fix?.lng, battery: fix?.batteryLevel, charging: fix?.batteryCharging,
             // Statuses age with the clock ("Just now" → "3 min ago"): rebuild at least every 30 s.
             clock: Int(Date().timeIntervalSince1970 / 30))
@@ -84,8 +84,7 @@ public struct TraxHub: View {
         guard let c = selfCoordinate else { return nil }
         let me = contactsByID[sync.currentUserID]
         let match = placeMatch(c)
-        let nm = me?.name.isEmpty == false ? me!.name : "You"
-        return TraxPerson(id: "self", ownerId: sync.currentUserID, name: nm, avatar: me?.avatar,
+        return TraxPerson(id: "self", ownerId: sync.currentUserID, name: selfName, avatar: me?.avatar,
                           coordinate: c, isSelf: true, precision: "exact", status: nil,
                           battery: TraxBatteryStatus(level: engine.currentFix?.batteryLevel,
                                                      charging: engine.currentFix?.batteryCharging ?? false),
@@ -493,6 +492,7 @@ final class HubPeopleMemo {
         let incoming: [IncomingShareSnapshot]
         let contacts: [TraxContact]
         let places: [PlaceSnapshot]
+        let names: [String]
         let fixLat: Double?, fixLng: Double?
         let battery: Int?, charging: Bool?
         let clock: Int

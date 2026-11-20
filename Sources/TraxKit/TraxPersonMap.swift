@@ -23,11 +23,9 @@ struct TraxPersonMap: View {
     @State private var camera: MapCameraPosition = .automatic
     @State private var placeError: String?
     @ScaledMetric(relativeTo: .body) private var markerSize: CGFloat = 34
+    @Environment(\.traxDisplayNames) private var names
 
-    private var name: String {
-        let n = engine.people[personID]?.name
-        return (n?.isEmpty == false ? n! : "Member \(personID.uuidString.prefix(8))")
-    }
+    private var name: String { names.name(for: personID, people: engine.people) }
     private var avatar: String? { engine.people[personID]?.avatar }
     private var relationship: TraxRelationship { engine.relationship(with: personID) }
     private var summary: TraxLocationSummary? { relationship.incoming }

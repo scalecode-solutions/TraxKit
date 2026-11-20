@@ -64,6 +64,11 @@ enum LabLaunch {
     static var friend: UUID? {
         ProcessInfo.processInfo.environment["LAB_FRIEND"].flatMap(UUID.init(uuidString:))
     }
+    /// LAB_NICKNAME=<name>: what the Lab, as a host with its own names, calls
+    /// LAB_FRIEND (handed to the kit through `traxDisplayNames`).
+    static var nickname: String? {
+        ProcessInfo.processInfo.environment["LAB_NICKNAME"].flatMap { $0.isEmpty ? nil : $0 }
+    }
     /// LAB_START=chats opens on the conversation, LAB_START=me on settings.
     static var startTab: LabTab {
         switch ProcessInfo.processInfo.environment["LAB_START"] {
@@ -133,6 +138,9 @@ struct TraxLabHost: View {
             .tag(LabTab.me)
         }
         .tint(.tardisBlue)
+        .traxDisplayNames { [friend = LabLaunch.friend, nickname = LabLaunch.nickname] id in
+            id == friend ? nickname : nil
+        }
         .onAppear { session.start() }
         .onDisappear { session.stop() }
         .onChange(of: phase, initial: true) { _, p in session.setForeground(p != .background) }

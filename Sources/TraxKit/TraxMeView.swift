@@ -25,10 +25,8 @@ struct TraxMeView: View {
 
     private var coord: CLLocationCoordinate2D { person.coordinate }
     private func contact(_ id: UUID) -> TraxContact? { contacts.first { $0.id == id } }
-    private func viewerName(_ id: UUID) -> String {
-        let n = contact(id)?.name
-        return (n?.isEmpty == false ? n! : "Member \(id.uuidString.prefix(8))")
-    }
+    @Environment(\.traxDisplayNames) private var names
+    private func viewerName(_ id: UUID) -> String { names.name(for: id, people: sync.contactsByID) }
 
     var body: some View {
         VStack(spacing: 16) {
