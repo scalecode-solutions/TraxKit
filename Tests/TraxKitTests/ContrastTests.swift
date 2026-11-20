@@ -85,6 +85,16 @@ struct ContrastTests {
         #expect(Self.contrast((0, 0, 0), brandDark) >= 4.5)
     }
 
+    /// Settings rows (TraxRowLabel): the words are the text colour on the
+    /// grouped cell, the tint only colours the icon. As text the dark brand
+    /// would miss AA on the cell; the label colour clears it in both schemes.
+    @Test func settingsRowWordsAreTextNotTint() {
+        let cellDark: RGB = (28, 28, 30), cellLight: RGB = (255, 255, 255)
+        #expect(Self.contrast(Self.tints[0].dark, cellDark) < 4.5, "why not the tint as words")
+        #expect(Self.contrast((255, 255, 255), cellDark) >= 4.5)
+        #expect(Self.contrast((0, 0, 0), cellLight) >= 4.5)
+    }
+
     /// Why not white on a solid tint (CalendarKit's choice, which works there
     /// because CalendarKit knows its colours and picks black for bright ones):
     /// with the host's own dark-mode brand it misses AA for text.
