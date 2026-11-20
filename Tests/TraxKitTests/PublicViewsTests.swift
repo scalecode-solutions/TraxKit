@@ -82,6 +82,20 @@ import Testing
         #expect(PlaceEditorAccess(isNew: false, ownerID: friend, me: me) == .member)
     }
 
+    @Test func aCrossingDaysOldDoesntReadAsToday() {
+        let cal = Calendar.current
+        let now = cal.date(bySettingHour: 15, minute: 0, second: 0, of: Date())!
+        let today = traxCrossingTime(now.addingTimeInterval(-3600), now: now)
+        #expect(!today.contains("Yesterday") && today.contains(":"))
+        let yesterday = traxCrossingTime(cal.date(byAdding: .day, value: -1, to: now)!, now: now)
+        #expect(yesterday.hasPrefix("Yesterday "))
+        let threeDays = cal.date(byAdding: .day, value: -3, to: now)!
+        #expect(traxCrossingTime(threeDays, now: now)
+                .hasPrefix(threeDays.formatted(.dateTime.weekday(.abbreviated))))
+        let month = traxCrossingTime(cal.date(byAdding: .day, value: -30, to: now)!, now: now)
+        #expect(!month.contains(":"), "an old crossing shows its date: \(month)")
+    }
+
     @Test func appearanceFillsInTheName() {
         let a = TraxAppearance(notSharing: "%@ is hidden")
         #expect(a.with(a.notSharing, "Sam") == "Sam is hidden")

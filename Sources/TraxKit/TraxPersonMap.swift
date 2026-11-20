@@ -174,7 +174,9 @@ struct TraxPersonMap: View {
 
     @ViewBuilder private var weather: some View {
         if let coord = summary?.coordinate {
+            // An accessory to the status: nothing until there's weather.
             TraxWeatherBadge(store: engine.weather, latitude: coord.latitude, longitude: coord.longitude, showCondition: true)
+                .quietWhenEmpty()
                 .font(.subheadline)
         }
     }
@@ -247,7 +249,22 @@ struct TraxPersonMap: View {
     }
 
     private func transitionTime(_ t: TransitionDTO) -> some View {
-        Text(Date(timeIntervalSince1970: Double(t.createdAt) / 1000).formatted(date: .omitted, time: .shortened))
+        Text(traxCrossingTime(Date(timeIntervalSince1970: Double(t.createdAt) / 1000)))
             .font(.caption).foregroundStyle(.secondary)
     }
+}
+
+/// When a crossing happened, as a short label: the time today, "Yesterday"
+/// and the time, the weekday within a week, else the date. A time alone
+/// would read as today for an arrival days old.
+func traxCrossingTime(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+    let time = date.formatted(date: .omitted, time: .shortened)
+    if calendar.isDate(date, inSameDayAs: now) { return time }
+    if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: y) {
+        return "Yesterday \(time)"
+    }
+    if let week = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)), date >= week {
+        return "\(date.formatted(.dateTime.weekday(.abbreviated))) \(time)"
+    }
+    return date.formatted(.dateTime.month(.abbreviated).day())
 }
