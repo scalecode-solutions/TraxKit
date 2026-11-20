@@ -207,7 +207,7 @@ final class TraxLabUITests: XCTestCase {
         XCTAssert(start.waitForExistence(timeout: 15) || stop.exists, "no share controls")
         if !stop.exists { shot("card-not-sharing"); start.tap() }
         XCTAssert(stop.waitForExistence(timeout: 15), "the share didn't start")
-        XCTAssert(app.buttons["share.change"].exists, "no Change")
+        XCTAssert(app.buttons["share.change"].exists, "no Edit")
         shot("card-sharing")
         stop.tap()
         XCTAssert(start.waitForExistence(timeout: 15), "the share didn't stop")

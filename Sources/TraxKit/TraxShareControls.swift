@@ -69,7 +69,8 @@ struct TraxShareControls: View {
 
     private var sharingButtons: some View {
         HStack(spacing: 10) {
-            Button("Change") {
+            // "Edit": short enough to stay on one line at the largest text.
+            Button("Edit") {
                 if let s = outgoing {
                     precision = SharePrecision(rawValue: s.precision?.rawValue ?? "exact") ?? .exact
                     duration = DurationChoice.initial(for: s)

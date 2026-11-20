@@ -150,6 +150,7 @@ public struct TraxHub: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showShareSheet = true } label: {
                         Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(Color.primary)   // the host's toolbar tint can win over .tint
                     }
                     // The text colour, not the host's tint: over the map's glass
                     // a tinted glyph blends in (seen on iOS 27). As a
@@ -166,6 +167,7 @@ public struct TraxHub: View {
                         }
                     } label: {
                         Image(systemName: "gearshape").font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(Color.primary)
                     }
                     .tint(Color.primary)
                     .accessibilityLabel("Location settings")
@@ -290,6 +292,9 @@ public struct TraxHub: View {
 
     private func controlIcon(_ name: String) -> some View {
         Image(systemName: name).font(.system(size: 16, weight: .medium))
+            // The text colour on the glass: a Menu label (map style) would
+            // otherwise wear the host's tint and blend in over the map.
+            .foregroundStyle(Color.primary)
             .frame(width: 40, height: 40)
             .traxGlass(in: .circle, interactive: true)
     }
