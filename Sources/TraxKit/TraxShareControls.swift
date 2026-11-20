@@ -76,10 +76,10 @@ struct TraxShareControls: View {
                 }
                 changing = true
             }
-            .buttonStyle(.bordered)
+            .traxSecondaryAction()
             .accessibilityIdentifier("share.change")
             Button("Stop", role: .destructive) { stop() }
-                .buttonStyle(.bordered)
+                .traxDestructiveAction()
                 .disabled(busy)
                 .accessibilityIdentifier("share.stop")
         }
@@ -120,16 +120,20 @@ struct TraxShareControls: View {
                             Text(outgoing == nil ? appearance.with(appearance.shareButton, personName) : "Update sharing")
                                 .multilineTextAlignment(.center)
                         }
+                        // On the host's tint: the host's own pick (it knows its
+                        // colours; white misses AA on some, e.g. a mid blue).
+                        .foregroundStyle(appearance.onTint)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .disabled(busy)
             .accessibilityIdentifier("share.start")
             if changing {
                 Button("Cancel") { changing = false }
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundStyle(Color.primary)
                     .accessibilityIdentifier("share.cancelChange")
             }
         }
@@ -144,6 +148,7 @@ struct TraxShareControls: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Picker(title, selection: selection, content: content).pickerStyle(.menu).labelsHidden()
+                    .tint(Color.primary)   // the value is text: never the host's tint
                     .frame(minHeight: 44)
             }
             .accessibilityElement(children: .contain)
@@ -152,6 +157,7 @@ struct TraxShareControls: View {
             LabeledContent(title) {
                 // Hidden: LabeledContent shows the title (a List would show it twice).
                 Picker(title, selection: selection, content: content).pickerStyle(.menu).labelsHidden()
+                    .tint(Color.primary)   // the value is text: never the host's tint
             }
             .accessibilityIdentifier(id)
         } else {
