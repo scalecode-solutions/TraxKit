@@ -27,6 +27,27 @@ public struct TraxSettingsView<Extra: View>: View {
     private var me: TraxContact? { engine.people[engine.currentUserID] }
     private var myName: String { names.name(for: engine.currentUserID, people: engine.people, fallback: "You") }
     private var myPlaces: [TraxPlace] { engine.places.filter(\.isMine) }
+    private var sharedWithMe: [TraxPlace] { engine.places.filter { !$0.isMine } }
+
+    private func name(for id: UUID) -> String { names.name(for: id, people: engine.people) }
+
+    private func placeTitle(_ place: TraxPlace) -> String {
+        "\(place.emoji.map { "\($0) " } ?? "")\(place.name)"
+    }
+
+    private func subtitle(_ place: TraxPlace) -> String { traxPlaceSubtitle(place, name: name(for:)) }
+
+    private func placeRow(_ place: TraxPlace) -> some View {
+        Button { edit(place) } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(placeTitle(place)).foregroundStyle(.primary)
+                Text(subtitle(place)).font(.subheadline).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(place.isMine ? "settings.place.\(place.name)" : "settings.sharedPlace")
+    }
 
     public var body: some View {
         List {
@@ -47,23 +68,23 @@ public struct TraxSettingsView<Extra: View>: View {
             }
 
             Section {
-                ForEach(myPlaces) { place in
-                    Button { edit(place) } label: {
-                        LabeledContent {
-                            Text(place.kind.rawValue.capitalized).foregroundStyle(.secondary)
-                        } label: {
-                            Text("\(place.emoji.map { "\($0) " } ?? "")\(place.name)")
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .accessibilityIdentifier("settings.place.\(place.name)")
-                }
+                ForEach(myPlaces) { placeRow($0) }
                 Button { editing = .new } label: { Label("Add a place", systemImage: "plus") }
                     .accessibilityIdentifier("settings.addPlace")
             } header: {
                 Text("My places")
             } footer: {
                 Text("Choose which of your places each person sees from your conversation with them.")
+            }
+
+            if !sharedWithMe.isEmpty {
+                Section {
+                    ForEach(sharedWithMe) { placeRow($0) }
+                } header: {
+                    Text("Shared with me")
+                } footer: {
+                    Text("Places friends share with you. You can both adjust one; its name and type are theirs.")
+                }
             }
 
             Section {
@@ -86,7 +107,7 @@ public struct TraxSettingsView<Extra: View>: View {
         .traxBackdrop()
         .navigationTitle("Location")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode) }
+        .sheet(item: $editing) { mode in PlaceEditor(engine: engine, mode: mode, scope: .selfScoped) }
         .confirmationDialog("Stop sharing your location with everyone?", isPresented: $confirmStopAll,
                             titleVisibility: .visible) {
             Button("Stop sharing", role: .destructive) { run("Stopped sharing.") { try await engine.stopAllSharing() } }
@@ -109,14 +130,27 @@ public struct TraxSettingsView<Extra: View>: View {
             Button("Allow in the background") { engine.requestLocationAccess() }
                 .accessibilityIdentifier("settings.allowAlways")
         case .notDetermined:
+            attention("Not allowed yet")
             Button("Allow location access") { engine.requestLocationAccess() }
                 .accessibilityIdentifier("settings.allowLocation")
         case .denied:
-            LabeledContent("Access", value: "Off")
+            attention("Off")
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 Link("Open Settings", destination: url)
             }
         }
+    }
+
+    /// Access that needs the person's attention: always orange (a warning,
+    /// not the host's accent), with a symbol so it isn't colour alone.
+    private func attention(_ value: String) -> some View {
+        LabeledContent {
+            Label(value, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        } label: {
+            Text("Access")
+        }
+        .accessibilityIdentifier("settings.accessAttention")
     }
 
     private func edit(_ place: TraxPlace) {
@@ -132,6 +166,14 @@ public struct TraxSettingsView<Extra: View>: View {
             catch { message = "That didn't work. Try again." }
         }
     }
+}
+
+/// A place row's second line in my settings: who shared it with me, or who I
+/// share it with, or just its kind.
+func traxPlaceSubtitle(_ place: TraxPlace, name: (UUID) -> String) -> String {
+    if !place.isMine { return "Shared by \(name(place.ownerID))" }
+    if place.isShared { return "Shared with " + place.sharedWith.map(name).joined(separator: ", ") }
+    return place.kind.rawValue.capitalized
 }
 
 public extension TraxSettingsView where Extra == EmptyView {

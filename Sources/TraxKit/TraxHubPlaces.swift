@@ -118,9 +118,26 @@ final class AddressSearchModel: NSObject, MKLocalSearchCompleterDelegate {
 /// Create/edit a place with a real map picker: type an address (live autocomplete),
 /// drag the map under the center pin, or tap locate-me. For an existing custom
 /// place, a "Shared with" section co-owns it with friends.
+/// Whether the editor also manages who a place is shared with. Settings are
+/// self-scoped: who sees which place is decided per person (in
+/// TraxPairSettingsView), never from one central list.
+enum PlaceEditorScope { case withSharing, selfScoped }
+
+/// What I may change in a place, as the server allows it: its owner changes
+/// everything; a member (a friend shared it with me) adjusts the spot, radius
+/// and emoji, while its name and type stay the owner's.
+enum PlaceEditorAccess: Equatable {
+    case full, member
+
+    init(isNew: Bool, ownerID: UUID?, me: UUID) {
+        self = isNew || ownerID == me ? .full : .member
+    }
+}
+
 struct PlaceEditor: View {
     let engine: TraxEngine
     let mode: PlaceEdit
+    var scope: PlaceEditorScope = .withSharing
     private var sync: TraxSync { engine.sync }
     private var currentUserID: UUID { engine.sync.currentUserID }
     @Environment(\.dismiss) private var dismiss
@@ -153,8 +170,9 @@ struct PlaceEditor: View {
         engine.currentFix.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
     }
     private var isEdit: Bool { if case .existing = mode { return true }; return false }
+    private var access: PlaceEditorAccess { .init(isNew: !isEdit, ownerID: ownerID, me: currentUserID) }
     private var isOwner: Bool { ownerID == currentUserID }
-    private var canShare: Bool { isEdit && type == "custom" && placeID != nil }
+    private var canShare: Bool { scope == .withSharing && isEdit && type == "custom" && placeID != nil }
 
     private func name(for id: UUID) -> String { names.name(for: id, people: engine.people) }
 
@@ -165,11 +183,13 @@ struct PlaceEditor: View {
                 Form {
                     Section { addressRow }
                     Section {
-                        TextField("Name (e.g. Home)", text: $name).disabled(!isOwner && isEdit)
-                        if isOwner || !isEdit {
+                        TextField("Name (e.g. Home)", text: $name).disabled(access == .member)
+                            .accessibilityIdentifier("place.name")
+                        if access == .full {
                             Picker("Type", selection: $type) {
                                 Text("Home").tag("home"); Text("Work").tag("work"); Text("Custom").tag("custom")
                             }
+                            .accessibilityIdentifier("place.type")
                         }
                         TextField("Emoji (optional)", text: $emoji)
                     }
@@ -177,6 +197,12 @@ struct PlaceEditor: View {
                         VStack(alignment: .leading) {
                             Text("\(Int(radius)) m").font(.caption).foregroundStyle(.secondary)
                             Slider(value: $radius, in: 50...1000, step: 25)
+                        }
+                    }
+                    if access == .member, let ownerID {
+                        Section {} footer: {
+                            Text("Shared with you by \(name(for: ownerID)). You can both adjust it; its name and type are theirs.")
+                                .accessibilityIdentifier("place.sharedBy")
                         }
                     }
                     if canShare { sharedSection }
