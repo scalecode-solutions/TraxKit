@@ -134,11 +134,12 @@ struct TraxPersonMap: View {
         .frame(maxHeight: maxHeight)
         .fixedSize(horizontal: false, vertical: true)
         // The card is laid out above the bottom safe area (the inset frames
-        // the camera), but it is drawn to the screen's edge: the glass and the
-        // scroll run on under the home indicator, or a host's tab bar, as
-        // Apple Maps' sheet does. The scroll view's automatic safe-area
-        // content inset keeps the last row resting above it.
-        .ignoresSafeArea(.container, edges: .bottom)
+        // the camera) and its scroll stays there, so the last row rests above
+        // the home indicator or a host's tab bar on every iOS: a scroll view
+        // run into the safe area gets the automatic content inset on iOS 26
+        // but not on iOS 27, which slid the content under the tab bar and left
+        // empty glass at the top (MVTRAX-39). Only the glass is drawn on to
+        // the screen's edge, so no strip of map shows below the card.
         .background {
             UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
                 .fill(.clear)
